@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	"gopkg.in/olivere/elastic.v3"
@@ -74,33 +76,76 @@ func (c *connection) readPump() {
 
 		// h.broadcast <- message
 		go func() {
-			es, err := elastic.NewClient(elastic.SetURL("http://172.16.84.1:9200/"), elastic.SetSniff(false))
+			index := v["index"].(string)
+
+			u, err := url.Parse(index)
 			if err != nil {
-				panic(err)
+				return
 			}
 
-			// termQuery := elastic.NewTermQuery("user", "olivere")
+			es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
+			//es, err := elastic.NewClient(elastic.SetURL("http://10.242.16.24:9200/"), elastic.SetSniff(false))
+			if err != nil {
+				fmt.Println(err.Error())
+				buff := new(bytes.Buffer)
+				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
+					"query": v["query"].(string),
+					"color": v["color"].(string),
+					"error": err.Error(),
+				})
+				c.send <- buff.Bytes()
+				return
+			}
+
+			hl := elastic.NewHighlight()
+			hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
+			hl = hl.PreTags("<em>").PostTags("</em>")
+
 			results, err := es.Search().
-				Index("octopus").                                        // search in index "twitter"
+				Index(path.Base(u.Path)). // search in index "twitter"
+				Highlight(hl).
 				Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
-				From(c.b).Size(100).                                     // take documents 0-9
-				Pretty(true).                                            // pretty print request and response JSON
+				From(c.b).Size(200).                                     // take documents 0-9
 				Do()                                                     // execute
 			if err != nil {
-				// Handle error
-				panic(err)
+				fmt.Println(err.Error())
+				buff := new(bytes.Buffer)
+				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
+					"query": v["query"].(string),
+					"color": v["color"].(string),
+					"error": err.Error(),
+				})
+				c.send <- buff.Bytes()
+				return
 			}
 
+			//pretty.Print(results.Hits)
+
 			if results.Hits.TotalHits > 0 {
+				// pretty.Print(results.Hits.Hits[0])
+
 				fmt.Printf("Found a total of %d tweets\n", results.Hits.TotalHits)
 
 				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(results)
+				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
+					"query":   v["query"].(string),
+					"color":   v["color"].(string),
+					"results": results,
+				})
 
 				c.send <- buff.Bytes()
 			} else {
 				// No hits
 				fmt.Print("Found no results\n")
+
+				buff := new(bytes.Buffer)
+				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
+					"query":   v["query"].(string),
+					"color":   v["color"].(string),
+					"results": results,
+				})
+
+				c.send <- buff.Bytes()
 			}
 			c.b += 10
 		}()

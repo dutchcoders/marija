@@ -4,12 +4,11 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"text/template"
 )
 
-var addr = flag.String("addr", "127.0.0.1:8089", "http service address")
-var homeTempl = template.Must(template.ParseFiles("home.html"))
+var addr = flag.String("addr", "0.0.0.0:8089", "http service address")
 
+/*
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "Not found", 404)
@@ -22,6 +21,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	homeTempl.Execute(w, r.Host)
 }
+*/
 
 type Packet struct {
 }
@@ -31,7 +31,7 @@ func main() {
 
 	go h.run()
 
-	http.HandleFunc("/", serveHome)
+	http.Handle("/", http.FileServer(http.Dir(".")))
 	http.HandleFunc("/ws", serveWs)
 
 	if err := http.ListenAndServe(*addr, nil); err != nil {
