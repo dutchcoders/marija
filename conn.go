@@ -45,7 +45,7 @@ type connection struct {
 	ws *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan interface{}
 
 	b int
 }
@@ -56,9 +56,11 @@ func (c *connection) readPump() {
 		h.unregister <- c
 		c.ws.Close()
 	}()
+
 	c.ws.SetReadLimit(maxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
 	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
 	for {
 		_, message, err := c.ws.ReadMessage()
 		if err != nil {
@@ -68,14 +70,27 @@ func (c *connection) readPump() {
 			break
 		}
 
+		// check type of message
+		// mapping
+		// query
+
 		fmt.Println(string(message))
 
 		v := map[string]interface{}{}
 
-		json.NewDecoder(bytes.NewBuffer(message)).Decode(&v)
+		if err := json.NewDecoder(bytes.NewBuffer(message)).Decode(&v); err != nil {
+			c.send <- map[string]interface{}{
+				"error": map[string]interface{}{
+					"query":   v["query"].(string),
+					"color":   v["color"].(string),
+					"message": err.Error(),
+				},
+			}
 
-		// h.broadcast <- message
-		go func() {
+			return
+		}
+
+		func() {
 			index := v["index"].(string)
 
 			u, err := url.Parse(index)
@@ -84,16 +99,16 @@ func (c *connection) readPump() {
 			}
 
 			es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
-			//es, err := elastic.NewClient(elastic.SetURL("http://10.242.16.24:9200/"), elastic.SetSniff(false))
 			if err != nil {
 				fmt.Println(err.Error())
-				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
-					"query": v["query"].(string),
-					"color": v["color"].(string),
-					"error": err.Error(),
-				})
-				c.send <- buff.Bytes()
+
+				c.send <- map[string]interface{}{
+					"error": map[string]interface{}{
+						"query":   v["query"].(string),
+						"color":   v["color"].(string),
+						"message": err.Error(),
+					},
+				}
 				return
 			}
 
@@ -109,44 +124,25 @@ func (c *connection) readPump() {
 				Do()                                                     // execute
 			if err != nil {
 				fmt.Println(err.Error())
-				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
-					"query": v["query"].(string),
-					"color": v["color"].(string),
-					"error": err.Error(),
-				})
-				c.send <- buff.Bytes()
+
+				c.send <- map[string]interface{}{
+					"error": map[string]interface{}{
+						"query":   v["query"].(string),
+						"color":   v["color"].(string),
+						"message": err.Error(),
+					},
+				}
 				return
 			}
 
-			//pretty.Print(results.Hits)
-
-			if results.Hits.TotalHits > 0 {
-				// pretty.Print(results.Hits.Hits[0])
-
-				fmt.Printf("Found a total of %d tweets\n", results.Hits.TotalHits)
-
-				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
+			c.send <- map[string]interface{}{
+				"hits": map[string]interface{}{
 					"query":   v["query"].(string),
 					"color":   v["color"].(string),
 					"results": results,
-				})
-
-				c.send <- buff.Bytes()
-			} else {
-				// No hits
-				fmt.Print("Found no results\n")
-
-				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(map[string]interface{}{
-					"query":   v["query"].(string),
-					"color":   v["color"].(string),
-					"results": results,
-				})
-
-				c.send <- buff.Bytes()
+				},
 			}
+
 			c.b += 10
 		}()
 
@@ -166,6 +162,7 @@ func (c *connection) writePump() {
 		ticker.Stop()
 		c.ws.Close()
 	}()
+
 	for {
 		select {
 		case message, ok := <-c.send:
@@ -173,12 +170,16 @@ func (c *connection) writePump() {
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
-			if err := c.write(websocket.TextMessage, message); err != nil {
+
+			buff := new(bytes.Buffer)
+			if err := json.NewEncoder(buff).Encode(message); err != nil {
+				log.Println(err.Error())
+				return
+			} else if err := c.write(websocket.TextMessage, buff.Bytes()); err != nil {
 				log.Println(err.Error())
 				return
 			}
 		case <-ticker.C:
-			log.Println("Ping")
 			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
 				log.Println("%#v", err.Error())
 				return
@@ -195,42 +196,11 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := &connection{send: make(chan []byte, 256), ws: ws}
+	c := &connection{send: make(chan interface{}, 256), ws: ws}
+
 	h.register <- c
+
 	log.Println("Connection upgraded.")
-
-	/*
-		go func() {
-			es, err := elastic.NewClient(elastic.SetURL("http://172.16.84.1:9200/"), elastic.SetSniff(false))
-			if err != nil {
-				panic(err)
-			}
-
-			// termQuery := elastic.NewTermQuery("user", "olivere")
-			results, err := es.Search().
-				Index("octopus").                  // search in index "twitter"
-				Query(elastic.NewMatchAllQuery()). // specify the query
-				From(0).Size(500).                 // take documents 0-9
-				Pretty(true).                      // pretty print request and response JSON
-				Do()                               // execute
-			if err != nil {
-				// Handle error
-				panic(err)
-			}
-
-			if results.Hits.TotalHits > 0 {
-				fmt.Printf("Found a total of %d tweets\n", results.Hits.TotalHits)
-
-				buff := new(bytes.Buffer)
-				_ = json.NewEncoder(buff).Encode(results)
-
-				c.send <- buff.Bytes()
-			} else {
-				// No hits
-				fmt.Print("Found no results\n")
-			}
-		}()
-	*/
 
 	go c.writePump()
 	c.readPump()
