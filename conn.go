@@ -50,9 +50,9 @@ func (c *connection) reportError(event map[string]interface{}, error error) {
 }
 
 func (c *connection) connectToEs(event map[string]interface{}) (esClient *elastic.Client, url *url.URL) {
-	index := event["index"].(string)
+	server := event["server"].(string)
 
-	url, parseError := url.Parse(index)
+	url, parseError := url.Parse(server)
 	if parseError != nil {
 		return
 	}
@@ -87,7 +87,7 @@ func (c *connection) search(event map[string]interface{}) {
 	}
 
 	c.send <- map[string]interface{}{
-		"type": "search",
+		"type": "RECEIVE_ITEMS",
 		"hits": map[string]interface{}{
 			"query":   event["query"].(string),
 			"color":   event["color"].(string),
@@ -109,7 +109,7 @@ func (c *connection) discoverIndices(event map[string]interface{}) {
 	}
 
 	c.send <- map[string]interface{}{
-		"type": "index_discovery",
+		"type": "RECEIVE_INDICES",
 		"hits": map[string]interface{}{
 			"server":   event["server"].(string),
 			"indices": results.Indices,
