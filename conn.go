@@ -24,6 +24,12 @@ const (
 	maxMessageSize = 512
 )
 
+const (
+	RECEIVE_ITEMS = "RECEIVE_ITEMS"
+	RECEIVE_INDICES = "RECEIVE_INDICES"
+
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -87,7 +93,7 @@ func (c *connection) search(event map[string]interface{}) {
 	}
 
 	c.send <- map[string]interface{}{
-		"type": "RECEIVE_ITEMS",
+		"type": RECEIVE_ITEMS,
 		"hits": map[string]interface{}{
 			"query":   event["query"].(string),
 			"color":   event["color"].(string),
@@ -109,7 +115,7 @@ func (c *connection) discoverIndices(event map[string]interface{}) {
 	}
 
 	c.send <- map[string]interface{}{
-		"type": "RECEIVE_INDICES",
+		"type": RECEIVE_INDICES,
 		"hits": map[string]interface{}{
 			"server":   event["server"].(string),
 			"indices": results.Indices,
