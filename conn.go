@@ -7,144 +7,82 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"log"
+	"fmt"
+	_ "log"
 	"net/http"
 	"net/url"
 	"path"
 	"time"
 
 	"gopkg.in/olivere/elastic.v3"
+
 	"github.com/gorilla/websocket"
 )
 
 const (
+	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = 1 * time.Second
+
+	// Maximum message size allowed from peer.
 	maxMessageSize = 512
-)
-
-const (
-	RECEIVE_ITEMS = "RECEIVE_ITEMS"
-	RECEIVE_INDICES = "RECEIVE_INDICES"
-
 )
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// connection is an middleman between the websocket connection and the hub.
 type connection struct {
-	ws   *websocket.Conn
-	send chan interface{}
+	// The websocket connection.
+	ws *websocket.Conn
+
+	// Buffered channel of outbound messages.
+	send chan json.Marshaler
+
+	b int
 }
 
-func (c *connection) reportError(event map[string]interface{}, error error) {
-	log.Println(error.Error())
-
-	c.send <- map[string]interface{}{
-		"error": map[string]interface{}{
-			"query":   event["query"].(string),
-			"color":   event["color"].(string),
-			"message": error.Error(),
-		},
-	}
+type ErrorMessage struct {
+	Query   string `json:"query"`
+	Color   string `json:"color"`
+	Message string `json:"message"`
 }
 
-func (c *connection) connectToEs(event map[string]interface{}) (esClient *elastic.Client, url *url.URL) {
-	server := event["server"].(string)
+func (em *ErrorMessage) MarshalJSON() ([]byte, error) {
+	type Alias ErrorMessage
 
-	url, parseError := url.Parse(server)
-	if parseError != nil {
-		return
-	}
-
-	esClient, connectionError := elastic.NewClient(elastic.SetURL(url.Host), elastic.SetSniff(false))
-	if connectionError != nil {
-		c.reportError(event, connectionError)
-		return
-	}
-
-	return esClient, url
+	return json.Marshal(&struct {
+		Error Alias `json:"error"`
+	}{
+		Error: (Alias)(*em),
+	})
 }
 
-func (c *connection) search(event map[string]interface{}) {
-
-	es, url := c.connectToEs(event)
-
-	hl := elastic.NewHighlight()
-	hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
-	hl = hl.PreTags("<em>").PostTags("</em>")
-
-	results, err := es.Search().
-		Index(path.Base(url.Path)).
-		Highlight(hl).
-		Query(elastic.NewQueryStringQuery(event["query"].(string))).
-		From(0).Size(200).
-		Do()
-
-	if err != nil {
-		c.reportError(event, err)
-		return
-	}
-
-	c.send <- map[string]interface{}{
-		"type": RECEIVE_ITEMS,
-		"hits": map[string]interface{}{
-			"query":   event["query"].(string),
-			"color":   event["color"].(string),
-			"results": results,
-		},
-	}
+type ResultsMessage struct {
+	Query   string      `json:"query"`
+	Color   string      `json:"color"`
+	Results interface{} `json:"results"`
 }
 
-func (c *connection) discoverIndices(event map[string]interface{}) {
-	es, _ := c.connectToEs(event)
+func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
+	type Alias ResultsMessage
 
-	results, err := es.IndexStats().
-		Metric("index").
-		Do()
-
-	if err != nil {
-		c.reportError(event, err)
-		return
-	}
-
-	c.send <- map[string]interface{}{
-		"type": RECEIVE_INDICES,
-		"hits": map[string]interface{}{
-			"server":   event["server"].(string),
-			"indices": results.Indices,
-		},
-	}
+	return json.Marshal(&struct {
+		Hits Alias `json:"hits"`
+	}{
+		Hits: (Alias)(*em),
+	})
 }
 
-func (c *connection) discoverFields(event map[string]interface{}) {
-	es, url := c.connectToEs(event)
-
-	results, err := es.FieldStats().
-		Index(path.Base(url.Path)).
-		Do()
-
-	if err != nil {
-		c.reportError(event, err)
-		return
-	}
-
-	c.send <- map[string]interface{}{
-		"type": "field_discovery",
-		"hits": map[string]interface{}{
-			"server":   event["server"].(string),
-			"index":   event["index"].(string),
-			"fields": results.Indices,
-		},
-	}
-}
-
+// readPump pumps messages from the websocket connection to the hub.
 func (c *connection) readPump() {
 	defer func() {
 		h.unregister <- c
@@ -153,37 +91,82 @@ func (c *connection) readPump() {
 
 	c.ws.SetReadLimit(maxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
-	c.ws.SetPongHandler(func(string) error {
-		c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil
-	})
+	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
 		_, message, err := c.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
-				log.Printf("error: %v", err)
+				log.Errorf("error: %v", err)
 			}
 			break
 		}
 
-		event := map[string]interface{}{}
+		// check type of message
+		// mapping
+		// query
 
-		if err := json.NewDecoder(bytes.NewBuffer(message)).Decode(&event); err != nil {
-			c.reportError(event, err)
+		log.Debug(string(message))
+
+		v := map[string]interface{}{}
+		if err := json.NewDecoder(bytes.NewBuffer(message)).Decode(&v); err != nil {
+			c.send <- &ErrorMessage{
+				Query:   v["query"].(string),
+				Color:   v["color"].(string),
+				Message: err.Error(),
+			}
+
 			return
 		}
 
 		func() {
-			event_type := event["event_type"].(float64)
+			index := v["index"].(string)
 
-			switch(event_type){
-			case 1:
-				c.search(event)
-			case 2:
-				c.discoverIndices(event)
-			case 3:
-				c.discoverFields(event)
+			u, err := url.Parse(index)
+			if err != nil {
+				return
 			}
+
+			es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
+			if err != nil {
+				fmt.Println(err.Error())
+
+				c.send <- &ErrorMessage{
+					Query:   v["query"].(string),
+					Color:   v["color"].(string),
+					Message: err.Error(),
+				}
+				return
+			}
+
+			hl := elastic.NewHighlight()
+			hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
+			hl = hl.PreTags("<em>").PostTags("</em>")
+
+			results, err := es.Search().
+				Index(path.Base(u.Path)). // search in index "twitter"
+				Highlight(hl).
+				Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
+				From(c.b).Size(200).                                     // take documents 0-9
+				Do()                                                     // execute
+			if err != nil {
+				fmt.Println(err.Error())
+
+				c.send <- &ErrorMessage{
+					Query:   v["query"].(string),
+					Color:   v["color"].(string),
+					Message: err.Error(),
+				}
+				return
+			}
+
+			c.send <- &ResultsMessage{
+				Query:   v["query"].(string),
+				Color:   v["color"].(string),
+				Results: results,
+			}
+
+			c.b += 10
 		}()
 
 	}
@@ -213,36 +196,37 @@ func (c *connection) writePump() {
 
 			buff := new(bytes.Buffer)
 			if err := json.NewEncoder(buff).Encode(message); err != nil {
-				log.Println(err.Error())
+				log.Error(err.Error())
 				return
 			} else if err := c.write(websocket.TextMessage, buff.Bytes()); err != nil {
-				log.Println(err.Error())
+				log.Error(err.Error())
 				return
 			}
 		case <-ticker.C:
 			if err := c.write(websocket.PingMessage, []byte{}); err != nil {
-				log.Println("%#v", err.Error())
+				log.Error("%#v", err.Error())
 				return
 			}
 		}
 	}
 }
 
+// serveWs handles websocket requests from the peer.
 func serveWs(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return
 	}
 
-	c := &connection{send: make(chan interface{}, 256), ws: ws}
+	c := &connection{send: make(chan json.Marshaler, 256), ws: ws}
 
 	h.register <- c
 
-	log.Println("Connection upgraded.")
+	log.Info("Connection upgraded.")
 
 	go c.writePump()
 	c.readPump()
 
-	log.Println("Connection closed")
+	log.Info("Connection closed")
 }

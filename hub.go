@@ -4,19 +4,11 @@
 
 package main
 
-import (
-	"bytes"
-	"encoding/json"
-)
-
 // hub maintains the set of active connections and broadcasts messages to the
 // connections.
 type hub struct {
 	// Registered connections.
 	connections map[*connection]bool
-
-	// Inbound messages from the connections.
-	broadcast chan []Packet
 
 	// Register requests from the connections.
 	register chan *connection
@@ -26,7 +18,6 @@ type hub struct {
 }
 
 var h = hub{
-	broadcast:   make(chan []Packet),
 	register:    make(chan *connection),
 	unregister:  make(chan *connection),
 	connections: make(map[*connection]bool),
@@ -41,18 +32,6 @@ func (h *hub) run() {
 			if _, ok := h.connections[c]; ok {
 				delete(h.connections, c)
 				close(c.send)
-			}
-		case m := <-h.broadcast:
-			buff := new(bytes.Buffer)
-			_ = json.NewEncoder(buff).Encode(m)
-
-			for c := range h.connections {
-				select {
-				case c.send <- buff.Bytes():
-				default:
-					close(c.send)
-					delete(h.connections, c)
-				}
 			}
 		}
 	}
