@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package server
 
 import (
 	"bytes"
@@ -147,7 +147,7 @@ func (c *connection) readPump() {
 				Index(path.Base(u.Path)). // search in index "twitter"
 				Highlight(hl).
 				Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
-				From(c.b).Size(200).                                     // take documents 0-9
+				From(c.b).Size(500).                                     // take documents 0-9
 				Do()                                                     // execute
 			if err != nil {
 				fmt.Println(err.Error())

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package server
 
 // hub maintains the set of active connections and broadcasts messages to the
 // connections.

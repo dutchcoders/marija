@@ -1,25 +1,18 @@
-package main
+package server
 
 import (
 	"fmt"
 	_ "log"
 	"net/http"
+	"os"
 
+	web "github.com/dutchcoders/marija-web"
+	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fatih/color"
+	"github.com/op/go-logging"
 )
 
-// Debug - enables debugging.
-func Debug() func(*Server) {
-	return func(server *Server) {
-		server.debug = true
-	}
-}
-
-func Address(addr string) func(*Server) {
-	return func(server *Server) {
-		server.address = addr
-	}
-}
+var log = logging.MustGetLogger("marija/server")
 
 type Server struct {
 	address string
@@ -29,7 +22,16 @@ type Server struct {
 func (server *Server) Run() {
 	go h.run()
 
-	http.Handle("/", http.FileServer(http.Dir(".")))
+	http.Handle("/", http.FileServer(
+		&assetfs.AssetFS{
+			Asset:    web.Asset,
+			AssetDir: web.AssetDir,
+			AssetInfo: func(path string) (os.FileInfo, error) {
+				return os.Stat(path)
+			},
+			Prefix: web.Prefix,
+		}))
+
 	http.HandleFunc("/ws", serveWs)
 
 	fmt.Println(color.YellowString(fmt.Sprintf("Marija server started, listening on address %s.", server.address)))
