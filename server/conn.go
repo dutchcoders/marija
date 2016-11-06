@@ -115,58 +115,59 @@ func (c *connection) readPump() {
 				Color:   v["color"].(string),
 				Message: err.Error(),
 			}
-
-			return
+			continue
 		}
 
 		func() {
-			index := v["index"].(string)
+			indexes := v["index"].([]string)
 
-			u, err := url.Parse(index)
-			if err != nil {
-				return
-			}
+			for _, index := range indexes {
+				u, err := url.Parse(index)
+				if err != nil {
+					return
+				}
 
-			es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
-			if err != nil {
-				fmt.Println(err.Error())
+				es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
+				if err != nil {
+					fmt.Println(err.Error())
 
-				c.send <- &ErrorMessage{
+					c.send <- &ErrorMessage{
+						Query:   v["query"].(string),
+						Color:   v["color"].(string),
+						Message: err.Error(),
+					}
+					return
+				}
+
+				hl := elastic.NewHighlight()
+				hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
+				hl = hl.PreTags("<em>").PostTags("</em>")
+
+				results, err := es.Search().
+					Index(path.Base(u.Path)). // search in index "twitter"
+					Highlight(hl).
+					Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
+					From(c.b).Size(200).                                     // take documents 0-9
+					Do()                                                     // execute
+				if err != nil {
+					fmt.Println(err.Error())
+
+					c.send <- &ErrorMessage{
+						Query:   v["query"].(string),
+						Color:   v["color"].(string),
+						Message: err.Error(),
+					}
+					return
+				}
+
+				c.send <- &ResultsMessage{
 					Query:   v["query"].(string),
 					Color:   v["color"].(string),
-					Message: err.Error(),
+					Results: results,
 				}
-				return
+
+				c.b += 10
 			}
-
-			hl := elastic.NewHighlight()
-			hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
-			hl = hl.PreTags("<em>").PostTags("</em>")
-
-			results, err := es.Search().
-				Index(path.Base(u.Path)). // search in index "twitter"
-				Highlight(hl).
-				Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
-				From(c.b).Size(500).                                     // take documents 0-9
-				Do()                                                     // execute
-			if err != nil {
-				fmt.Println(err.Error())
-
-				c.send <- &ErrorMessage{
-					Query:   v["query"].(string),
-					Color:   v["color"].(string),
-					Message: err.Error(),
-				}
-				return
-			}
-
-			c.send <- &ResultsMessage{
-				Query:   v["query"].(string),
-				Color:   v["color"].(string),
-				Results: results,
-			}
-
-			c.b += 10
 		}()
 
 	}
