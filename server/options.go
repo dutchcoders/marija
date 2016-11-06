@@ -8,6 +8,12 @@ func Debug() func(*Server) {
 	}
 }
 
+func Path(val string) func(*Server) {
+	return func(server *Server) {
+		server.path = val
+	}
+}
+
 func Address(addr string) func(*Server) {
 	return func(server *Server) {
 		server.address = addr

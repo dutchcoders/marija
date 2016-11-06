@@ -40,6 +40,11 @@ var globalFlags = []cli.Flag{
 		Value: "127.0.0.1:8080",
 	},
 	cli.StringFlag{
+		Name:  "path",
+		Usage: "path to static files",
+		Value: "",
+	},
+	cli.StringFlag{
 		Name:  "c,config",
 		Usage: "config file",
 		Value: "config.toml",
@@ -71,6 +76,7 @@ func New() *Cmd {
 	app.Action = func(c *cli.Context) {
 		srvr := server.New(
 			server.Address(c.String("port")),
+			server.Path(c.String("path")),
 		)
 
 		srvr.Run()

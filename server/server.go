@@ -15,6 +15,7 @@ import (
 var log = logging.MustGetLogger("marija/server")
 
 type Server struct {
+	path    string
 	address string
 	debug   bool
 }
@@ -22,7 +23,7 @@ type Server struct {
 func (server *Server) Run() {
 	go h.run()
 
-	http.Handle("/", http.FileServer(
+	staticHandler := http.FileServer(
 		&assetfs.AssetFS{
 			Asset:    web.Asset,
 			AssetDir: web.AssetDir,
@@ -30,7 +31,14 @@ func (server *Server) Run() {
 				return os.Stat(path)
 			},
 			Prefix: web.Prefix,
-		}))
+		})
+
+	if server.path != "" {
+		log.Debug("Using static file path: ", server.path)
+		staticHandler = http.FileServer(http.Dir(server.path))
+	}
+
+	http.Handle("/", staticHandler)
 
 	http.HandleFunc("/ws", serveWs)
 
