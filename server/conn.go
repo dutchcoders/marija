@@ -120,9 +120,9 @@ func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 }
 
 func (c *connection) Search(event map[string]interface{}) {
-	indexes := event["host"].([]string)
+	indexes := event["host"].([]interface{})
 	for _, index := range indexes {
-		u, parseError := url.Parse(index)
+		u, parseError := url.Parse(index.(string))
 		if parseError != nil {
 			log.Panic(parseError)
 		}
@@ -162,16 +162,16 @@ func (c *connection) Search(event map[string]interface{}) {
 		c.send <- &ResultsMessage{
 			Query:   event["query"].(string),
 			Color:   event["color"].(string),
-			Server:  index,
+			Server:  index.(string),
 			Results: results,
 		}
 	}
 }
 
 func (c *connection) DiscoverIndices(event map[string]interface{}) {
-	indexes := event["host"].([]string)
+	indexes := event["host"].([]interface{})
 	for _, index := range indexes {
-		u, err := url.Parse(index)
+		u, err := url.Parse(index.(string))
 		if err != nil {
 			c.send <- &ErrorMessage{
 				Query:   event["query"].(string),
@@ -205,7 +205,7 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 		}
 
 		c.send <- &IndicesMessage{
-			Server:  index,
+			Server:  index.(string),
 			Indices: results.Indices,
 		}
 	}
