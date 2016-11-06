@@ -14,9 +14,8 @@ import (
 	"path"
 	"time"
 
-	"gopkg.in/olivere/elastic.v3"
-
 	"github.com/gorilla/websocket"
+	"gopkg.in/olivere/elastic.v3"
 )
 
 const (
@@ -36,8 +35,20 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
+
+const (
+	ERROR = "ERROR"
+
+	ITEMS_REQUEST = "ITEMS_REQUEST"
+	ITEMS_RECEIVE = "ITEMS_RECEIVE"
+
+	INDICES_REQUEST = "INDICES_REQUEST"
+	INDICES_RECEIVE = "INDICES_RECEIVE"
+)
 
 // connection is an middleman between the websocket connection and the hub.
 type connection struct {
@@ -60,13 +71,16 @@ func (em *ErrorMessage) MarshalJSON() ([]byte, error) {
 	type Alias ErrorMessage
 
 	return json.Marshal(&struct {
-		Error Alias `json:"error"`
+		Type  string `json:"type"`
+		Error Alias  `json:"error"`
 	}{
+		Type:  ERROR,
 		Error: (Alias)(*em),
 	})
 }
 
 type ResultsMessage struct {
+	Server  string      `json:"server"`
 	Query   string      `json:"query"`
 	Color   string      `json:"color"`
 	Results interface{} `json:"results"`
@@ -76,10 +90,125 @@ func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
 	type Alias ResultsMessage
 
 	return json.Marshal(&struct {
-		Hits Alias `json:"hits"`
+		Type string `json:"type"`
+		Hits Alias  `json:"hits"`
 	}{
+		Type: ITEMS_RECEIVE,
 		Hits: (Alias)(*em),
 	})
+}
+
+type IndicesMessage struct {
+	Server  string      `json:"server"`
+	Indices interface{} `json:"results"`
+}
+
+func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
+	type Alias IndicesMessage
+
+	return json.Marshal(&struct {
+		Type string `json:"type"`
+		Hits Alias  `json:"hits"`
+	}{
+		Type: INDICES_RECEIVE,
+		Hits: (Alias)(*em),
+	})
+}
+
+func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
+	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
+}
+
+func (c *connection) Search(event map[string]interface{}) {
+	indexes := event["host"].([]string)
+	for _, index := range indexes {
+		u, parseError := url.Parse(index)
+		if parseError != nil {
+			log.Panic(parseError)
+		}
+
+		es, err := c.ConnectToEs(u)
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
+		}
+
+		hl := elastic.NewHighlight()
+		hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
+		hl = hl.PreTags("<em>").PostTags("</em>")
+
+		results, err := es.Search().
+			Index(path.Base(u.Path)). // search in index "twitter"
+			Highlight(hl).
+			Query(elastic.NewQueryStringQuery(event["query"].(string))). // specify the query
+			From(c.b).Size(500).                                         // take documents 0-9
+			Do()
+
+		if err != nil {
+			fmt.Println(err.Error())
+
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
+		}
+
+		c.send <- &ResultsMessage{
+			Query:   event["query"].(string),
+			Color:   event["color"].(string),
+			Server:  index,
+			Results: results,
+		}
+	}
+}
+
+func (c *connection) DiscoverIndices(event map[string]interface{}) {
+	indexes := event["host"].([]string)
+	for _, index := range indexes {
+		u, err := url.Parse(index)
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
+		}
+
+		es, err := c.ConnectToEs(u)
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
+		}
+
+		results, err := es.IndexStats().
+			Metric("index").
+			Do()
+
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
+		}
+
+		c.send <- &IndicesMessage{
+			Server:  index,
+			Indices: results.Indices,
+		}
+	}
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -91,7 +220,10 @@ func (c *connection) readPump() {
 
 	c.ws.SetReadLimit(maxMessageSize)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
-	c.ws.SetPongHandler(func(string) error { c.ws.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	c.ws.SetPongHandler(func(string) error {
+		c.ws.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
 		_, message, err := c.ws.ReadMessage()
@@ -101,10 +233,6 @@ func (c *connection) readPump() {
 			}
 			break
 		}
-
-		// check type of message
-		// mapping
-		// query
 
 		log.Debug(string(message))
 
@@ -119,54 +247,14 @@ func (c *connection) readPump() {
 		}
 
 		func() {
-			indexes := v["index"].([]string)
+			t := v["type"].(string)
 
-			for _, index := range indexes {
-				u, err := url.Parse(index)
-				if err != nil {
-					return
-				}
+			switch t {
+			case ITEMS_REQUEST:
+				c.Search(v)
 
-				es, err := elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
-				if err != nil {
-					fmt.Println(err.Error())
-
-					c.send <- &ErrorMessage{
-						Query:   v["query"].(string),
-						Color:   v["color"].(string),
-						Message: err.Error(),
-					}
-					return
-				}
-
-				hl := elastic.NewHighlight()
-				hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
-				hl = hl.PreTags("<em>").PostTags("</em>")
-
-				results, err := es.Search().
-					Index(path.Base(u.Path)). // search in index "twitter"
-					Highlight(hl).
-					Query(elastic.NewQueryStringQuery(v["query"].(string))). // specify the query
-					From(c.b).Size(200).                                     // take documents 0-9
-					Do()                                                     // execute
-				if err != nil {
-					fmt.Println(err.Error())
-
-					c.send <- &ErrorMessage{
-						Query:   v["query"].(string),
-						Color:   v["color"].(string),
-						Message: err.Error(),
-					}
-					return
-				}
-
-				c.send <- &ResultsMessage{
-					Query:   v["query"].(string),
-					Color:   v["color"].(string),
-					Results: results,
-				}
-
-				c.b += 10
+			case INDICES_REQUEST:
+				c.DiscoverIndices(v)
 			}
 		}()
 
