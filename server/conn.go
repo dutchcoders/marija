@@ -138,14 +138,16 @@ func (c *connection) Search(event map[string]interface{}) {
 		}
 
 		hl := elastic.NewHighlight()
-		hl = hl.Fields(elastic.NewHighlighterField("_all").NumOfFragments(0))
+		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 		hl = hl.PreTags("<em>").PostTags("</em>")
+
+		q := elastic.NewQueryStringQuery(event["query"].(string))
 
 		results, err := es.Search().
 			Index(path.Base(u.Path)). // search in index "twitter"
 			Highlight(hl).
-			Query(elastic.NewQueryStringQuery(event["query"].(string))). // specify the query
-			From(c.b).Size(500).                                         // take documents 0-9
+			Query(q).
+			From(c.b).Size(500).
 			Do()
 
 		if err != nil {
