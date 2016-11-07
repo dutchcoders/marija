@@ -1,3 +1,5 @@
+![](https://github.com/dutchcoders/marija-screenshots/blob/master/logo.png?raw=true)
+
 # Marija [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/marija?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/dutchcoders/marija)](https://goreportcard.com/report/dutchcoders/marija)
 
 Marija is a graphing solution for (un)structured Elasticsearch data. Using Marija you'll be able to see connections 
