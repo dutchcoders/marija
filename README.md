@@ -20,14 +20,24 @@ $ marija
 
 There are a few steps you need to take before you can start.
 
-* add the indexes in the configuration
-* add the correct fields, those fields are being used as node identifier
+* add the elasticsearch server to the configuration, using the cloud icon you can provision the indexes
+* enable the index(es) you want to search in
+* add the correct fields, those fields are being used as unique identifier for each node 
 * now you can enter your queries, and analyse the data
 
+## Features
+
+* normalization of identifiers
+* support for multiple servers and indexes
+* support for links on multiple fields
+* add different icons to fields
+* query the index using elasticsearch queries
+* histogram
+* identify datasources using the table pane
 
 ## Roadmap
 
-We're working towards a first version. From there we'll work on the following:
+We're working towards a first version. 
 
 ## Contributions
 
@@ -43,6 +53,6 @@ Contributions are welcome.
 
 ## Copyright and license
 
-Code and documentation copyright 206 Remco Verhoef.
+Code and documentation copyright 2016 Remco Verhoef.
 Code released under [the Apache license](LICENSE).
 
