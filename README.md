@@ -51,6 +51,10 @@ You're all setup now, just type your queries.
 * zoom and move nodes
 * navigate through selected data using the tableview
 
+## Workspace
+
+Currently we're only supporting one single workspace. The workspace is being stored in the local storage of your browser. Next versions will support loading and saving multiple workspaces.
+
 ## Todo
 
 * Optimize, optimize, optimize.
