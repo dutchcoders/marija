@@ -13,6 +13,14 @@ Currently Marija is being used to identify related spamruns, but can be used for
 
 ## Install
 
+Currently installation is only supported using the source.
+
+### Install Golang
+
+If you do not have a working Golang environment setup please follow [Golang Installation Guide](https://golang.org/doc/install).
+
+### Install Marija
+
 Installation of Marija is easy.
 
 ```
@@ -24,24 +32,75 @@ $ marija
 
 There are a few steps you need to take before you can start.
 
-* add the elasticsearch server to the configuration, using the cloud icon you can provision the indexes
-* enable the index(es) you want to search in
-* add the correct fields, those fields are being used as unique identifier for each node 
-* now you can enter your queries, and analyse the data
+* add your elasticsearch server to the configuration
+* use the cloud icon to provision the indexes
+* enable the index(es) you want to search in using the eye icon
+* add the fields you want to use as nodes
+
+You're all setup now, just type your queries.
 
 ## Features
 
-* normalization of identifiers
-* support for multiple servers and indexes
-* support for links on multiple fields
-* add different icons to fields
-* query the index using elasticsearch queries
-* histogram
-* identify datasources using the table pane
+* work on multiple servers and indexes at the same time
+* different fields can be used as node identifier
+* identifiers can be normalized through rules
+* each field will have its own icon
+* query indexes using elasticsearch queries like your used to do
+* histogram view to identify nodes in time
+* select and delete nodes
+* zoom and move nodes
+* navigate through selected data using the tableview
+
+## Todo
+
+* Optimize, optimize, optimize.
 
 ## Roadmap
 
 We're working towards a first version. 
+
+* analyze data at realtime
+* create specialized tools based on Marija for graphing for example packet traffic flows. 
+* see issue list for features and bugs
+
+## Development
+
+Setup your Marija Github Repository
+
+Fork Marija upstream source repository to your own personal repository. Copy the URL for marija from your personal github repo (you will need it for the git clone command below).
+
+$ mkdir -p $GOPATH/src/github.com/marija
+$ cd $GOPATH/src/github.com/marija
+$ git clone <paste saved URL for personal forked marija repo>
+$ cd marija
+
+###  Developer Guidelines
+``Marija`` community welcomes your contribution. To make the process as seamless as possible, we ask for the following:
+* Go ahead and fork the project and make your changes. We encourage pull requests to discuss code changes.
+    - Fork it
+    - Create your feature branch (git checkout -b my-new-feature)
+    - Commit your changes (git commit -am 'Add some feature')
+    - Push to the branch (git push origin my-new-feature)
+    - Create new Pull Request
+
+* If you have additional dependencies for ``Marija``, ``Marija`` manages its dependencies using [govendor](https://github.com/kardianos/govendor)
+    - Run `go get foo/bar`
+    - Edit your code to import foo/bar
+    - Run `make pkg-add PKG=foo/bar` from top-level directory
+
+* If you have dependencies for ``Marija`` which needs to be removed
+    - Edit your code to not import foo/bar
+    - Run `make pkg-remove PKG=foo/bar` from top-level directory
+
+* When you're ready to create a pull request, be sure to:
+    - Have test cases for the new code. If you have questions about how to do it, please ask in your pull request.
+    - Run `make verifiers`
+    - Squash your commits into a single commit. `git rebase -i`. It's okay to force update your pull request.
+    - Make sure `go test -race ./...` and `go build` completes.
+
+* Read [Effective Go](https://github.com/golang/go/wiki/CodeReviewComments) article from Golang project
+    - `Marija` project is fully conformant with Golang style
+    - if you happen to observe offending code, please feel free to send a pull request
 
 ## Contributions
 
