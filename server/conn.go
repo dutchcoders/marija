@@ -7,7 +7,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	_ "log"
 	"net/http"
 	"net/url"
@@ -121,6 +120,7 @@ func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 
 func (c *connection) Search(event map[string]interface{}) {
 	indexes := event["host"].([]interface{})
+
 	for _, index := range indexes {
 		u, parseError := url.Parse(index.(string))
 		if parseError != nil {
@@ -129,6 +129,8 @@ func (c *connection) Search(event map[string]interface{}) {
 
 		es, err := c.ConnectToEs(u)
 		if err != nil {
+			log.Error("Error connecting to host (%s): %s", u.String(), err.Error())
+
 			c.send <- &ErrorMessage{
 				Query:   event["query"].(string),
 				Color:   event["color"].(string),
@@ -149,9 +151,8 @@ func (c *connection) Search(event map[string]interface{}) {
 			Query(q).
 			From(c.b).Size(500).
 			Do()
-
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
 
 			c.send <- &ErrorMessage{
 				Query:   event["query"].(string),
