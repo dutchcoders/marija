@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "oYsVE/XSeFTCBhVkschvnPIguYY=",
+			"path": "github.com/dutchcoders/marija-web",
+			"revision": "776e2af8a428fd7c2f927cbace12b2e9ddaa214b",
+			"revisionTime": "2016-11-08T10:37:57Z"
+		},
+		{
 			"checksumSHA1": "bGdOim32+2dyKoQEtwW1PNwcdBc=",
 			"path": "github.com/elazarl/go-bindata-assetfs",
 			"revision": "9a6736ed45b44bf3835afeebb3034b57ed329f3e",
