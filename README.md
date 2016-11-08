@@ -63,9 +63,11 @@ We're working towards a first version.
 * create specialized tools based on Marija for graphing for example packet traffic flows. 
 * see issue list for features and bugs
 
-## Development
+## Contribute
 
-Setup your Marija Github Repository
+Contributions are welcome.
+
+### Setup your Marija Github Repository
 
 Fork Marija upstream source repository to your own personal repository. Copy the URL for marija from your personal github repo (you will need it for the git clone command below).
 
@@ -101,10 +103,6 @@ $ cd marija
 * Read [Effective Go](https://github.com/golang/go/wiki/CodeReviewComments) article from Golang project
     - `Marija` project is fully conformant with Golang style
     - if you happen to observe offending code, please feel free to send a pull request
-
-## Contributions
-
-Contributions are welcome.
 
 ## Creators
 
