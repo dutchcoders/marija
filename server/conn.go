@@ -47,17 +47,15 @@ const (
 
 	INDICES_REQUEST = "INDICES_REQUEST"
 	INDICES_RECEIVE = "INDICES_RECEIVE"
+
+	FIELDS_REQUEST = "FIELDS_REQUEST"
+	FIELDS_RECEIVE = "FIELDS_RECEIVE"
 )
 
-// connection is an middleman between the websocket connection and the hub.
 type connection struct {
-	// The websocket connection.
-	ws *websocket.Conn
-
-	// Buffered channel of outbound messages.
+	ws   *websocket.Conn
 	send chan json.Marshaler
-
-	b int
+	b    int
 }
 
 type ErrorMessage struct {
@@ -114,6 +112,24 @@ func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FieldsMessage struct {
+	Server string             `json:"server"`
+	Index  string             `json:"index"`
+	Fields interface{}        `json:"fields"`
+}
+
+func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
+	type Alias FieldsMessage
+
+	return json.Marshal(&struct {
+		Type string `json:"type"`
+		Hits Alias  `json:"hits"`
+	}{
+		Type: FIELDS_RECEIVE,
+		Hits: (Alias)(*em),
+	})
+}
+
 func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
 }
@@ -146,7 +162,7 @@ func (c *connection) Search(event map[string]interface{}) {
 		q := elastic.NewQueryStringQuery(event["query"].(string))
 
 		results, err := es.Search().
-			Index(path.Base(u.Path)). // search in index "twitter"
+			Index(path.Base(u.Path)).// search in index "twitter"
 			Highlight(hl).
 			Query(q).
 			From(c.b).Size(500).
@@ -214,6 +230,53 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 	}
 }
 
+func (c *connection) DiscoverFields(event map[string]interface{}) {
+	servers := event["host"].([]interface{})
+	for _, index := range servers {
+
+		u, err := url.Parse(index.(string))
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   "",
+				Color:   "",
+				Message: err.Error(),
+			}
+			return
+		}
+
+		es, err := c.ConnectToEs(u)
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   "",
+				Color:   "",
+				Message: err.Error(),
+			}
+			return
+		}
+
+		results, err := es.GetMapping().
+			Index(path.Base(u.Path)).
+			Do()
+
+		if err != nil {
+			c.send <- &ErrorMessage{
+				Query:   "",
+				Color:   "",
+				Message: err.Error(),
+			}
+			return
+		}
+
+		c.send <- &FieldsMessage{
+			Server:  index.(string),
+			Fields: results,
+		}
+	}
+}
+
+
+
+
 // readPump pumps messages from the websocket connection to the hub.
 func (c *connection) readPump() {
 	defer func() {
@@ -258,6 +321,9 @@ func (c *connection) readPump() {
 
 			case INDICES_REQUEST:
 				c.DiscoverIndices(v)
+
+			case FIELDS_REQUEST:
+				c.DiscoverFields(v)
 			}
 		}()
 
