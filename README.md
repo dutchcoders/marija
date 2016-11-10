@@ -13,13 +13,15 @@ Currently Marija is being used to identify related spamruns, but can be used for
 
 ## Install
 
+### Installation from source
+
 Currently installation is only supported using source.
 
-### Install Golang
+#### Install Golang
 
 If you do not have a working Golang environment setup please follow [Golang Installation Guide](https://golang.org/doc/install).
 
-### Install Marija
+#### Install Marija
 
 Installation of Marija is easy.
 
@@ -27,6 +29,14 @@ Installation of Marija is easy.
 $ go get github.com/dutchcoders/marija
 $ marija
 ```
+
+### Installation using Homebrew (macOS)
+
+```
+$ brew tap dutchcoders/homebrew-marija
+$ brew install marija
+```
+
 
 ## Usage
 
