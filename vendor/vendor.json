@@ -21,6 +21,12 @@
 			"revisionTime": "2016-10-25T12:05:01Z"
 		},
 		{
+			"checksumSHA1": "SmBqqqR0T+1Ksx5zwCl295Vey0s=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "9fbf129ff2a3cf2467f7d0021de2eb4d3aecc109",
+			"revisionTime": "2016-11-02T20:04:59Z"
+		},
+		{
 			"checksumSHA1": "ugnSryGF6VPBb5s87QgoRH6730g=",
 			"path": "github.com/mattn/go-colorable",
 			"revision": "6c903ff4aa50920ca86087a280590b36b3152b9c",
@@ -45,10 +51,40 @@
 			"revisionTime": "2016-03-15T20:05:05Z"
 		},
 		{
+			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",
+			"path": "golang.org/x/net/context",
+			"revision": "9ef22118a4b25863aa94546daffbc0a18feaafb3",
+			"revisionTime": "2016-11-09T21:27:32Z"
+		},
+		{
+			"checksumSHA1": "WHc3uByvGaMcnSoI21fhzYgbOgg=",
+			"path": "golang.org/x/net/context/ctxhttp",
+			"revision": "9ef22118a4b25863aa94546daffbc0a18feaafb3",
+			"revisionTime": "2016-11-09T21:27:32Z"
+		},
+		{
 			"checksumSHA1": "aVgPDgwY3/t4J/JOw9H3FVMHqh0=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "c200b10b5d5e122be351b67af224adc6128af5bf",
 			"revisionTime": "2016-10-22T18:22:21Z"
+		},
+		{
+			"checksumSHA1": "hmsF/4lK/blnq1B59gFN1lNYnFk=",
+			"path": "gopkg.in/olivere/elastic.v3",
+			"revision": "1ad75b5396674e9c783400e89106bc0c8da9d786",
+			"revisionTime": "2016-10-16T10:21:59Z"
+		},
+		{
+			"checksumSHA1": "lLdKOn9RPtFoTtPUNq5+sIInAiE=",
+			"path": "gopkg.in/olivere/elastic.v3/backoff",
+			"revision": "1ad75b5396674e9c783400e89106bc0c8da9d786",
+			"revisionTime": "2016-10-16T10:21:59Z"
+		},
+		{
+			"checksumSHA1": "XQg6xG6l15Ke43KolthYYnVDCYo=",
+			"path": "gopkg.in/olivere/elastic.v3/uritemplates",
+			"revision": "1ad75b5396674e9c783400e89106bc0c8da9d786",
+			"revisionTime": "2016-10-16T10:21:59Z"
 		}
 	],
 	"rootPath": "github.com/dutchcoders/marija"
