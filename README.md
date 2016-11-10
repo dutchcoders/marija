@@ -2,10 +2,10 @@
 
 # Marija [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/marija?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/dutchcoders/marija)](https://goreportcard.com/report/dutchcoders/marija)
 
-Marija is a graphing solution for (un)structured Elasticsearch data. Using Marija you'll be able to see connections 
+Marija is a data exploration and visualisation tool for (un)structured Elasticsearch data. Using Marija you'll be able to see connections 
 between data of different indexes and datasources without any modifications to your data or index.
 
-Currently Marija is being used to identify related spamruns, but can be used for all kind of different set, but can be used for all kind of different sets
+Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
 
 # Screenshot
 
