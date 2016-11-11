@@ -45,6 +45,7 @@ There are a few steps you need to take before you can start.
 * add your elasticsearch server to the configuration
 * use the cloud icon to retrieve the indexes
 * enable the index(es) you want to search in using the eye icon
+* use the refresh icon to refresh the list of available fields
 * add the fields you want to use as nodes
 
 * additionally you can add the date field you want to use for the histogram
