@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/kr/pretty"
 	"gopkg.in/olivere/elastic.v3"
 )
 
@@ -130,30 +131,6 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 	})
 }
 
-type Item struct {
-	ID        string                 `json:"id"`
-	Fields    map[string]interface{} `json:"fields"`
-	Highlight map[string][]string    `json:"highlight"`
-}
-
-/*
-type Index interface {
-}
-
-type Elasticsearch3Index struct {
-	u *url.URL
-}
-
-func NewElasticsearchIndex(u *url.URL) *Index {
-	return &Index{
-		u,
-	}
-}
-
-func (i *Elasticsearch3Index) Search(q string) []interface{} {
-}
-*/
-
 func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
 }
@@ -162,35 +139,7 @@ func (c *connection) Search(event map[string]interface{}) {
 	indexes := event["host"].([]interface{})
 
 	for _, index := range indexes {
-		u, parseError := url.Parse(index.(string))
-		if parseError != nil {
-			log.Panic(parseError)
-		}
-
-		es, err := c.ConnectToEs(u)
-		if err != nil {
-			log.Error("Error connecting to host (%s): %s", u.String(), err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
-				Message: err.Error(),
-			}
-			return
-		}
-
-		hl := elastic.NewHighlight()
-		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
-		hl = hl.PreTags("<em>").PostTags("</em>")
-
-		q := elastic.NewQueryStringQuery(event["query"].(string))
-
-		results, err := es.Search().
-			Index(path.Base(u.Path)). // search in index "twitter"
-			Highlight(hl).
-			Query(q).
-			From(c.b).Size(500).
-			Do()
+		u, err := url.Parse(index.(string))
 		if err != nil {
 			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
 
@@ -202,19 +151,28 @@ func (c *connection) Search(event map[string]interface{}) {
 			return
 		}
 
-		items := make([]Item, len(results.Hits.Hits))
-		for i, hit := range results.Hits.Hits {
-			var fields map[string]interface{}
-			if err := json.Unmarshal(*hit.Source, &fields); err != nil {
-				log.Error("Error unmarshalling source: %s", err.Error())
-				continue
-			}
+		i, err := NewElasticsearchIndex(u)
+		if err != nil {
+			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
 
-			items[i] = Item{
-				ID:        hit.Id,
-				Fields:    fields,
-				Highlight: hit.Highlight,
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
 			}
+			return
+		}
+
+		items, err := i.Search(event["query"].(string))
+		if err != nil {
+			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
+
+			c.send <- &ErrorMessage{
+				Query:   event["query"].(string),
+				Color:   event["color"].(string),
+				Message: err.Error(),
+			}
+			return
 		}
 
 		c.send <- &ResultsMessage{
@@ -226,6 +184,7 @@ func (c *connection) Search(event map[string]interface{}) {
 	}
 }
 
+// return complete url instead of only name of index?
 func (c *connection) DiscoverIndices(event map[string]interface{}) {
 	indexes := event["host"].([]interface{})
 	for _, index := range indexes {
@@ -268,11 +227,20 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 			return
 		}
 
+		pretty.Print(results.Indices)
+
 		c.send <- &IndicesMessage{
 			Server:  index.(string),
 			Indices: results.Indices,
 		}
 	}
+}
+
+// todo(nl5887): do we want to flatten the fields on the server?
+type Field struct {
+	Name string
+	Path string
+	Type string
 }
 
 func (c *connection) DiscoverFields(event map[string]interface{}) {
