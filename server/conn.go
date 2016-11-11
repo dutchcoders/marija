@@ -77,10 +77,10 @@ func (em *ErrorMessage) MarshalJSON() ([]byte, error) {
 }
 
 type ResultsMessage struct {
-	Server  string      `json:"server"`
-	Query   string      `json:"query"`
-	Color   string      `json:"color"`
-	Results interface{} `json:"results"`
+	Server  string `json:"server"`
+	Query   string `json:"query"`
+	Color   string `json:"color"`
+	Results []Item `json:"results"`
 }
 
 func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
@@ -113,9 +113,9 @@ func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
 }
 
 type FieldsMessage struct {
-	Server string             `json:"server"`
-	Index  string             `json:"index"`
-	Fields interface{}        `json:"fields"`
+	Server string      `json:"server"`
+	Index  string      `json:"index"`
+	Fields interface{} `json:"fields"`
 }
 
 func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
@@ -129,6 +129,30 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 		Hits: (Alias)(*em),
 	})
 }
+
+type Item struct {
+	ID        string                 `json:"id"`
+	Fields    map[string]interface{} `json:"fields"`
+	Highlight map[string][]string    `json:"highlight"`
+}
+
+/*
+type Index interface {
+}
+
+type Elasticsearch3Index struct {
+	u *url.URL
+}
+
+func NewElasticsearchIndex(u *url.URL) *Index {
+	return &Index{
+		u,
+	}
+}
+
+func (i *Elasticsearch3Index) Search(q string) []interface{} {
+}
+*/
 
 func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
@@ -162,7 +186,7 @@ func (c *connection) Search(event map[string]interface{}) {
 		q := elastic.NewQueryStringQuery(event["query"].(string))
 
 		results, err := es.Search().
-			Index(path.Base(u.Path)).// search in index "twitter"
+			Index(path.Base(u.Path)). // search in index "twitter"
 			Highlight(hl).
 			Query(q).
 			From(c.b).Size(500).
@@ -178,11 +202,26 @@ func (c *connection) Search(event map[string]interface{}) {
 			return
 		}
 
+		items := make([]Item, len(results.Hits.Hits))
+		for i, hit := range results.Hits.Hits {
+			var fields map[string]interface{}
+			if err := json.Unmarshal(*hit.Source, &fields); err != nil {
+				log.Error("Error unmarshalling source: %s", err.Error())
+				continue
+			}
+
+			items[i] = Item{
+				ID:        hit.Id,
+				Fields:    fields,
+				Highlight: hit.Highlight,
+			}
+		}
+
 		c.send <- &ResultsMessage{
 			Query:   event["query"].(string),
 			Color:   event["color"].(string),
 			Server:  index.(string),
-			Results: results,
+			Results: items,
 		}
 	}
 }
@@ -192,9 +231,11 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 	for _, index := range indexes {
 		u, err := url.Parse(index.(string))
 		if err != nil {
+			log.Errorf("Error parsing url (%s): %s", index.(string), err.Error())
+
 			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
+				Query:   "",
+				Color:   "",
 				Message: err.Error(),
 			}
 			return
@@ -202,9 +243,11 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 
 		es, err := c.ConnectToEs(u)
 		if err != nil {
+			log.Errorf("Error connecting to Elasticsearch: %s", err.Error())
+
 			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
+				Query:   "",
+				Color:   "",
 				Message: err.Error(),
 			}
 			return
@@ -215,9 +258,11 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) {
 			Do()
 
 		if err != nil {
+			log.Errorf("Error retrieving index stats: %s", err.Error())
+
 			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
+				Query:   "",
+				Color:   "",
 				Message: err.Error(),
 			}
 			return
@@ -268,14 +313,11 @@ func (c *connection) DiscoverFields(event map[string]interface{}) {
 		}
 
 		c.send <- &FieldsMessage{
-			Server:  index.(string),
+			Server: index.(string),
 			Fields: results,
 		}
 	}
 }
-
-
-
 
 // readPump pumps messages from the websocket connection to the hub.
 func (c *connection) readPump() {
