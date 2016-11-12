@@ -13,9 +13,14 @@ Currently Marija is being used to identify related spamruns, but can be used for
 
 ## Install
 
-### Installation from source
+### Using Docker
 
-Currently installation is only supported using source.
+```
+$ docker pull marija/marija
+$ docker run -d -p 8080:8080 --name marija marija/marija
+```
+
+### Installation from source
 
 #### Install Golang
 
