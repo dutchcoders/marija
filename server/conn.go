@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/kr/pretty"
 	"gopkg.in/olivere/elastic.v3"
 )
 
@@ -43,14 +42,14 @@ var upgrader = websocket.Upgrader{
 const (
 	ERROR = "ERROR"
 
-	ITEMS_REQUEST = "ITEMS_REQUEST"
-	ITEMS_RECEIVE = "ITEMS_RECEIVE"
+	ActionTypeItemsRequest = "ITEMS_REQUEST"
+	ActionTypeItemsReceive = "ITEMS_RECEIVE"
 
-	INDICES_REQUEST = "INDICES_REQUEST"
-	INDICES_RECEIVE = "INDICES_RECEIVE"
+	ActionTypeIndicesRequest = "INDICES_REQUEST"
+	ActionTypeIndicesReceive = "INDICES_RECEIVE"
 
-	FIELDS_REQUEST = "FIELDS_REQUEST"
-	FIELDS_RECEIVE = "FIELDS_RECEIVE"
+	ActionTypeFieldsRequest = "FIELDS_REQUEST"
+	ActionTypeFieldsReceive = "FIELDS_RECEIVE"
 )
 
 type connection struct {
@@ -91,14 +90,14 @@ func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
 		Type string `json:"type"`
 		Hits Alias  `json:"hits"`
 	}{
-		Type: ITEMS_RECEIVE,
+		Type: ActionTypeItemsReceive,
 		Hits: (Alias)(*em),
 	})
 }
 
 type IndicesMessage struct {
-	Server  string      `json:"server"`
-	Indices interface{} `json:"results"`
+	Host    string   `json:"server"`
+	Indices []string `json:"indices"`
 }
 
 func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
@@ -108,7 +107,7 @@ func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
 		Type string `json:"type"`
 		Hits Alias  `json:"hits"`
 	}{
-		Type: INDICES_RECEIVE,
+		Type: ActionTypeIndicesReceive,
 		Hits: (Alias)(*em),
 	})
 }
@@ -126,7 +125,7 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 		Type string `json:"type"`
 		Hits Alias  `json:"hits"`
 	}{
-		Type: FIELDS_RECEIVE,
+		Type: ActionTypeFieldsReceive,
 		Hits: (Alias)(*em),
 	})
 }
@@ -135,44 +134,27 @@ func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
 	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
 }
 
-func (c *connection) Search(event map[string]interface{}) {
+func (c *connection) Search(event map[string]interface{}) error {
 	indexes := event["host"].([]interface{})
 
 	for _, index := range indexes {
 		u, err := url.Parse(index.(string))
 		if err != nil {
-			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
 		i, err := NewElasticsearchIndex(u)
 		if err != nil {
-			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
-		items, err := i.Search(event["query"].(string))
+		items, err := i.Search(SearchOptions{
+			From:  event["from"].(int),
+			Size:  event["size"].(int),
+			Query: event["query"].(string),
+		})
 		if err != nil {
-			log.Error("Error while executing query (%s): %s", event["query"].(string), err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   event["query"].(string),
-				Color:   event["color"].(string),
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
 		c.send <- &ResultsMessage{
@@ -182,109 +164,68 @@ func (c *connection) Search(event map[string]interface{}) {
 			Results: items,
 		}
 	}
+
+	return nil
 }
 
 // return complete url instead of only name of index?
-func (c *connection) DiscoverIndices(event map[string]interface{}) {
-	indexes := event["host"].([]interface{})
-	for _, index := range indexes {
-		u, err := url.Parse(index.(string))
+func (c *connection) DiscoverIndices(event map[string]interface{}) error {
+	hosts := event["host"].([]interface{})
+	for _, host := range hosts {
+		u, err := url.Parse(host.(string))
 		if err != nil {
-			log.Errorf("Error parsing url (%s): %s", index.(string), err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
-		es, err := c.ConnectToEs(u)
+		i, err := NewElasticsearchIndex(u)
 		if err != nil {
-			log.Errorf("Error connecting to Elasticsearch: %s", err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
-		results, err := es.IndexStats().
-			Metric("index").
-			Do()
-
+		indices, err := i.Indices()
 		if err != nil {
-			log.Errorf("Error retrieving index stats: %s", err.Error())
-
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
-
-		pretty.Print(results.Indices)
 
 		c.send <- &IndicesMessage{
-			Server:  index.(string),
-			Indices: results.Indices,
+			Host:    host.(string),
+			Indices: indices,
 		}
 	}
+
+	return nil
 }
 
-// todo(nl5887): do we want to flatten the fields on the server?
 type Field struct {
-	Name string
-	Path string
-	Type string
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
-func (c *connection) DiscoverFields(event map[string]interface{}) {
+func (c *connection) DiscoverFields(event map[string]interface{}) error {
 	servers := event["host"].([]interface{})
 	for _, index := range servers {
-
 		u, err := url.Parse(index.(string))
 		if err != nil {
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
-		es, err := c.ConnectToEs(u)
+		i, err := NewElasticsearchIndex(u)
 		if err != nil {
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
-		results, err := es.GetMapping().
-			Index(path.Base(u.Path)).
-			Do()
-
+		fields, err := i.Fields(path.Base(u.Path))
 		if err != nil {
-			c.send <- &ErrorMessage{
-				Query:   "",
-				Color:   "",
-				Message: err.Error(),
-			}
-			return
+			return err
 		}
 
 		c.send <- &FieldsMessage{
 			Server: index.(string),
-			Fields: results,
+			Fields: fields,
 		}
 	}
+
+	return nil
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -310,10 +251,12 @@ func (c *connection) readPump() {
 			break
 		}
 
-		log.Debug(string(message))
+		log.Debug("Message", string(message))
 
 		v := map[string]interface{}{}
 		if err := json.NewDecoder(bytes.NewBuffer(message)).Decode(&v); err != nil {
+			log.Error("Error decoding message: ", err.Error())
+
 			c.send <- &ErrorMessage{
 				Query:   v["query"].(string),
 				Color:   v["color"].(string),
@@ -322,21 +265,36 @@ func (c *connection) readPump() {
 			continue
 		}
 
-		func() {
-			t := v["type"].(string)
-
-			switch t {
-			case ITEMS_REQUEST:
-				c.Search(v)
-
-			case INDICES_REQUEST:
-				c.DiscoverIndices(v)
-
-			case FIELDS_REQUEST:
-				c.DiscoverFields(v)
+		t := v["type"].(string)
+		switch t {
+		case ActionTypeItemsRequest:
+			if err := c.Search(v); err != nil {
+				log.Error("Error occured during search: %s", err.Error())
+				c.send <- &ErrorMessage{
+					Query:   "",
+					Color:   "",
+					Message: err.Error(),
+				}
 			}
-		}()
-
+		case ActionTypeIndicesRequest:
+			if err := c.DiscoverIndices(v); err != nil {
+				log.Error("Error occured during index discovery: %s", err.Error())
+				c.send <- &ErrorMessage{
+					Query:   "",
+					Color:   "",
+					Message: err.Error(),
+				}
+			}
+		case ActionTypeFieldsRequest:
+			if err := c.DiscoverFields(v); err != nil {
+				log.Error("Error occured during field discovery: %s", err.Error())
+				c.send <- &ErrorMessage{
+					Query:   "",
+					Color:   "",
+					Message: err.Error(),
+				}
+			}
+		}
 	}
 }
 
