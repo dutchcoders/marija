@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"gopkg.in/olivere/elastic.v3"
 )
 
 const (
@@ -130,13 +129,8 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (c *connection) ConnectToEs(u *url.URL) (*elastic.Client, error) {
-	return elastic.NewClient(elastic.SetURL(u.Host), elastic.SetSniff(false))
-}
-
 func (c *connection) Search(event map[string]interface{}) error {
 	indexes := event["host"].([]interface{})
-
 	for _, index := range indexes {
 		u, err := url.Parse(index.(string))
 		if err != nil {
@@ -149,8 +143,8 @@ func (c *connection) Search(event map[string]interface{}) error {
 		}
 
 		items, err := i.Search(SearchOptions{
-			From:  event["from"].(int),
-			Size:  event["size"].(int),
+			From:  int(event["from"].(float64)),
+			Size:  int(event["size"].(float64)),
 			Query: event["query"].(string),
 		})
 		if err != nil {
@@ -199,6 +193,12 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 type Field struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
+}
+
+type SearchOptions struct {
+	Size  int
+	From  int
+	Query string
 }
 
 func (c *connection) DiscoverFields(event map[string]interface{}) error {

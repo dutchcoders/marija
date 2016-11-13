@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "gj3Yc0Lt0z35yk8BtmhCbO59y34=",
+			"checksumSHA1": "ywE6fgqt23wE+TXv63ItHA6lLKE=",
 			"path": "github.com/dutchcoders/marija-web",
-			"revision": "47ef8d0e3d95cdca8ed7ba6265827532a9abf969",
-			"revisionTime": "2016-11-13T14:14:58Z"
+			"revision": "67c53f9e7e0abc46e42ff51f1b0c7009afd6aa2f",
+			"revisionTime": "2016-11-13T16:12:02Z"
 		},
 		{
 			"checksumSHA1": "bGdOim32+2dyKoQEtwW1PNwcdBc=",
@@ -97,6 +97,24 @@
 			"path": "gopkg.in/olivere/elastic.v3/uritemplates",
 			"revision": "1ad75b5396674e9c783400e89106bc0c8da9d786",
 			"revisionTime": "2016-10-16T10:21:59Z"
+		},
+		{
+			"checksumSHA1": "hq70/JJzoGeeUBar71Wif+Jqu74=",
+			"path": "gopkg.in/olivere/elastic.v5",
+			"revision": "ee3ebceab960cf68ab9a89ee6d78c031ef5b4a4e",
+			"revisionTime": "2016-11-06T13:31:42Z"
+		},
+		{
+			"checksumSHA1": "4o4sDuhMGKUOvovqg1yKGNjaeJU=",
+			"path": "gopkg.in/olivere/elastic.v5/backoff",
+			"revision": "ee3ebceab960cf68ab9a89ee6d78c031ef5b4a4e",
+			"revisionTime": "2016-11-06T13:31:42Z"
+		},
+		{
+			"checksumSHA1": "pCApZfp2CeDnWbNVsyzNO62ZUXA=",
+			"path": "gopkg.in/olivere/elastic.v5/uritemplates",
+			"revision": "ee3ebceab960cf68ab9a89ee6d78c031ef5b4a4e",
+			"revisionTime": "2016-11-06T13:31:42Z"
 		}
 	],
 	"rootPath": "github.com/dutchcoders/marija"
