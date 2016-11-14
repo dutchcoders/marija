@@ -13,6 +13,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/dutchcoders/marija/server/datasources"
 	"github.com/gorilla/websocket"
 )
 
@@ -51,6 +52,24 @@ const (
 	ActionTypeFieldsReceive = "FIELDS_RECEIVE"
 )
 
+func Debug() func(*Server) {
+	return func(server *Server) {
+		server.debug = true
+	}
+}
+
+func Path(val string) func(*Server) {
+	return func(server *Server) {
+		server.path = val
+	}
+}
+
+func Address(addr string) func(*Server) {
+	return func(server *Server) {
+		server.address = addr
+	}
+}
+
 type connection struct {
 	ws   *websocket.Conn
 	send chan json.Marshaler
@@ -76,10 +95,10 @@ func (em *ErrorMessage) MarshalJSON() ([]byte, error) {
 }
 
 type ResultsMessage struct {
-	Server  string `json:"server"`
-	Query   string `json:"query"`
-	Color   string `json:"color"`
-	Results []Item `json:"results"`
+	Server  string             `json:"server"`
+	Query   string             `json:"query"`
+	Color   string             `json:"color"`
+	Results []datasources.Item `json:"results"`
 }
 
 func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
@@ -137,12 +156,12 @@ func (c *connection) Search(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := NewElasticsearchIndex(u)
+		i, err := datasources.NewElasticsearchIndex(u)
 		if err != nil {
 			return err
 		}
 
-		items, err := i.Search(SearchOptions{
+		items, err := i.Search(datasources.SearchOptions{
 			From:  int(event["from"].(float64)),
 			Size:  int(event["size"].(float64)),
 			Query: event["query"].(string),
@@ -171,7 +190,7 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := NewElasticsearchIndex(u)
+		i, err := datasources.NewElasticsearchIndex(u)
 		if err != nil {
 			return err
 		}
@@ -190,17 +209,6 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 	return nil
 }
 
-type Field struct {
-	Path string `json:"path"`
-	Type string `json:"type"`
-}
-
-type SearchOptions struct {
-	Size  int
-	From  int
-	Query string
-}
-
 func (c *connection) DiscoverFields(event map[string]interface{}) error {
 	servers := event["host"].([]interface{})
 	for _, index := range servers {
@@ -209,7 +217,7 @@ func (c *connection) DiscoverFields(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := NewElasticsearchIndex(u)
+		i, err := datasources.NewElasticsearchIndex(u)
 		if err != nil {
 			return err
 		}

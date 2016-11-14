@@ -1,4 +1,4 @@
-package server
+package datasources
 
 type Index interface {
 	Search(SearchOptions) ([]Item, error)

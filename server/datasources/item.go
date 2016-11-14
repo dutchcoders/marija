@@ -1,4 +1,4 @@
-package server
+package datasources
 
 type Item struct {
 	ID        string                 `json:"id"`
