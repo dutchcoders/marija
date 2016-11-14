@@ -56,7 +56,7 @@ There are a few steps you need to take before you can start.
 * additionally you can add the date field you want to use for the histogram
 * and add some normalizations (eg removing part of the identifier) using regular expressions
 
-You're all setup now, just type your queries.
+You're all setup now, just type your queries and start exploring your data.
 
 ## Features
 
