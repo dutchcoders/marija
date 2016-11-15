@@ -42,6 +42,8 @@ var upgrader = websocket.Upgrader{
 const (
 	ERROR = "ERROR"
 
+	InitialStateReceive = "INITIAL_STATE_RECEIVE"
+
 	ActionTypeItemsRequest = "ITEMS_REQUEST"
 	ActionTypeItemsReceive = "ITEMS_RECEIVE"
 
@@ -76,6 +78,21 @@ type connection struct {
 	b    int
 }
 
+type InitialStateMessage struct {
+}
+
+func (em *InitialStateMessage) MarshalJSON() ([]byte, error) {
+	type Alias InitialStateMessage
+
+	return json.Marshal(&struct {
+		Type  string `json:"type"`
+		State Alias  `json:"state"`
+	}{
+		Type:  InitialStateReceive,
+		State: (Alias)(*em),
+	})
+}
+
 type ErrorMessage struct {
 	Query   string `json:"query"`
 	Color   string `json:"color"`
@@ -105,11 +122,11 @@ func (em *ResultsMessage) MarshalJSON() ([]byte, error) {
 	type Alias ResultsMessage
 
 	return json.Marshal(&struct {
-		Type string `json:"type"`
-		Hits Alias  `json:"hits"`
+		Type  string `json:"type"`
+		Items Alias  `json:"items"`
 	}{
-		Type: ActionTypeItemsReceive,
-		Hits: (Alias)(*em),
+		Type:  ActionTypeItemsReceive,
+		Items: (Alias)(*em),
 	})
 }
 
@@ -122,11 +139,11 @@ func (em *IndicesMessage) MarshalJSON() ([]byte, error) {
 	type Alias IndicesMessage
 
 	return json.Marshal(&struct {
-		Type string `json:"type"`
-		Hits Alias  `json:"hits"`
+		Type    string `json:"type"`
+		Indices Alias  `json:"indices"`
 	}{
-		Type: ActionTypeIndicesReceive,
-		Hits: (Alias)(*em),
+		Type:    ActionTypeIndicesReceive,
+		Indices: (Alias)(*em),
 	})
 }
 
@@ -140,11 +157,11 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 	type Alias FieldsMessage
 
 	return json.Marshal(&struct {
-		Type string `json:"type"`
-		Hits Alias  `json:"hits"`
+		Type   string `json:"type"`
+		Fields Alias  `json:"fields"`
 	}{
-		Type: ActionTypeFieldsReceive,
-		Hits: (Alias)(*em),
+		Type:   ActionTypeFieldsReceive,
+		Fields: (Alias)(*em),
 	})
 }
 
@@ -249,6 +266,9 @@ func (c *connection) readPump() {
 		c.ws.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
+
+	// send initial state
+	c.send <- &InitialStateMessage{}
 
 	for {
 		_, message, err := c.ws.ReadMessage()
