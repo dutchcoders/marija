@@ -11,7 +11,7 @@ Disclaimer: Marija is still in alpha, expect (many) bugs. Please report bugs in 
 
 # Screenshot
 
-![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-07%20at%2017.25.21.png?raw=true)
+![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-16%20at%2016.20.09.png?raw=true)
 
 ## Install
 
