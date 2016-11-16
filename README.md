@@ -7,6 +7,8 @@ between data of different datasources without any modifications to your data or 
 
 Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
 
+Disclaimer: Marija is still in alpha, expect (many) bugs. Please report bugs in the issue tracker.
+
 # Screenshot
 
 ![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-07%20at%2017.25.21.png?raw=true)
