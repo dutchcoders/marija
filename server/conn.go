@@ -293,36 +293,38 @@ func (c *connection) readPump() {
 			continue
 		}
 
-		t := v["type"].(string)
-		switch t {
-		case ActionTypeItemsRequest:
-			if err := c.Search(v); err != nil {
-				log.Error("Error occured during search: %s", err.Error())
-				c.send <- &ErrorMessage{
-					Query:   "",
-					Color:   "",
-					Message: err.Error(),
+		go func() {
+			t := v["type"].(string)
+			switch t {
+			case ActionTypeItemsRequest:
+				if err := c.Search(v); err != nil {
+					log.Error("Error occured during search: %s", err.Error())
+					c.send <- &ErrorMessage{
+						Query:   "",
+						Color:   "",
+						Message: err.Error(),
+					}
+				}
+			case ActionTypeIndicesRequest:
+				if err := c.DiscoverIndices(v); err != nil {
+					log.Error("Error occured during index discovery: %s", err.Error())
+					c.send <- &ErrorMessage{
+						Query:   "",
+						Color:   "",
+						Message: err.Error(),
+					}
+				}
+			case ActionTypeFieldsRequest:
+				if err := c.DiscoverFields(v); err != nil {
+					log.Error("Error occured during field discovery: %s", err.Error())
+					c.send <- &ErrorMessage{
+						Query:   "",
+						Color:   "",
+						Message: err.Error(),
+					}
 				}
 			}
-		case ActionTypeIndicesRequest:
-			if err := c.DiscoverIndices(v); err != nil {
-				log.Error("Error occured during index discovery: %s", err.Error())
-				c.send <- &ErrorMessage{
-					Query:   "",
-					Color:   "",
-					Message: err.Error(),
-				}
-			}
-		case ActionTypeFieldsRequest:
-			if err := c.DiscoverFields(v); err != nil {
-				log.Error("Error occured during field discovery: %s", err.Error())
-				c.send <- &ErrorMessage{
-					Query:   "",
-					Color:   "",
-					Message: err.Error(),
-				}
-			}
-		}
+		}()
 	}
 }
 
