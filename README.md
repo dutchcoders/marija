@@ -137,6 +137,7 @@ $ cd marija
 - <https://twitter.com/dutchcoders>
 
 **Kevin Hoogerwerf**
+- <https://keybase.io/kevinh>
 
 ## Copyright and license
 
