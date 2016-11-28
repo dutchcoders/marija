@@ -1,4 +1,4 @@
-package datasources
+package es5
 
 import (
 	"context"
@@ -11,9 +11,15 @@ import (
 	"strings"
 
 	elastic "gopkg.in/olivere/elastic.v5"
+
+	"github.com/dutchcoders/marija/server/datasources"
 )
 
-func NewElasticsearchIndexV5(u *url.URL) (Index, error) {
+var (
+	_ = datasources.Register("es5", NewElasticsearchIndexV5)
+)
+
+func NewElasticsearchIndexV5(u *url.URL) (datasources.Index, error) {
 	fmt.Println("Elasticsearch v5", u.String())
 
 	errorlog := log2.New(os.Stdout, "APP ", log2.LstdFlags)
@@ -29,8 +35,7 @@ func NewElasticsearchIndexV5(u *url.URL) (Index, error) {
 	// Ping the Elasticsearch server to get e.g. the version number
 	info, code, err := client.Ping(u.String()).Do(context.Background())
 	if err != nil {
-		// Handle error
-		panic(err)
+		return nil, err
 	}
 
 	fmt.Printf("Elasticsearch returned with code %d and version %s", code, info.Version.Number)
@@ -47,7 +52,7 @@ type ElasticsearchIndexV5 struct {
 	u      *url.URL
 }
 
-func (i *ElasticsearchIndexV5) Search(so SearchOptions) ([]Item, error) {
+func (i *ElasticsearchIndexV5) Search(so datasources.SearchOptions) ([]datasources.Item, error) {
 	hl := elastic.NewHighlight()
 	hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 	hl = hl.PreTags("<em>").PostTags("</em>")
@@ -63,14 +68,14 @@ func (i *ElasticsearchIndexV5) Search(so SearchOptions) ([]Item, error) {
 		return nil, err
 	}
 
-	items := make([]Item, len(results.Hits.Hits))
+	items := make([]datasources.Item, len(results.Hits.Hits))
 	for i, hit := range results.Hits.Hits {
 		var fields map[string]interface{}
 		if err := json.Unmarshal(*hit.Source, &fields); err != nil {
 			continue
 		}
 
-		items[i] = Item{
+		items[i] = datasources.Item{
 			ID:        hit.Id,
 			Fields:    fields,
 			Highlight: hit.Highlight,
@@ -103,8 +108,7 @@ func (i *ElasticsearchIndexV5) Indices() ([]string, error) {
 	return indices, nil
 }
 
-/*
-func flatten(root string, m map[string]interface{}) (fields []Field) {
+func flatten(root string, m map[string]interface{}) (fields []datasources.Field) {
 	for k, v := range m {
 		if k == "mappings" {
 			fields = append(fields, flatten(root, v.(map[string]interface{}))...)
@@ -120,7 +124,7 @@ func flatten(root string, m map[string]interface{}) (fields []Field) {
 				}
 				fields = append(fields, flatten(key, v2)...)
 			} else if k == "type" {
-				fields = append(fields, Field{
+				fields = append(fields, datasources.Field{
 					Path: root,
 					Type: v.(string),
 				})
@@ -130,9 +134,8 @@ func flatten(root string, m map[string]interface{}) (fields []Field) {
 
 	return
 }
-*/
 
-func (i *ElasticsearchIndexV5) Fields(index string) (fields []Field, err error) {
+func (i *ElasticsearchIndexV5) Fields(index string) (fields []datasources.Field, err error) {
 	mapping, err := i.client.GetMapping().
 		Index(index).
 		Do(context.Background())

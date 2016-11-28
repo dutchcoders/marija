@@ -6,9 +6,17 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/dutchcoders/marija/server/datasources"
+	"github.com/dutchcoders/marija/server/datasources/es2"
+	"github.com/dutchcoders/marija/server/datasources/es5"
 )
 
-func NewElasticsearchIndex(u *url.URL) (Index, error) {
+var (
+	_ = datasources.Register("es", NewElasticsearchIndex)
+)
+
+func NewElasticsearchIndex(u *url.URL) (datasources.Index, error) {
 	rel, err := url.Parse("/")
 	if err != nil {
 		log.Fatal(err)
@@ -33,8 +41,8 @@ func NewElasticsearchIndex(u *url.URL) (Index, error) {
 	}
 
 	if strings.HasPrefix(v.Version.Number, "5.") {
-		return NewElasticsearchIndexV5(u)
+		return es5.NewElasticsearchIndexV5(u)
 	} else {
-		return NewElasticsearchIndexV3(u)
+		return es2.NewElasticsearchIndexV3(u)
 	}
 }

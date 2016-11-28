@@ -11,9 +11,15 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"runtime"
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
+
+	_ "github.com/dutchcoders/marija/server/datasources/es"
+	_ "github.com/dutchcoders/marija/server/datasources/es2"
+	_ "github.com/dutchcoders/marija/server/datasources/es5"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -54,7 +60,7 @@ const (
 	ActionTypeFieldsReceive = "FIELDS_RECEIVE"
 )
 
-func Debug() func(*Server) {
+func Debug2() func(*Server) {
 	return func(server *Server) {
 		server.debug = true
 	}
@@ -173,7 +179,12 @@ func (c *connection) Search(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := datasources.NewElasticsearchIndex(u)
+		datasource, err := datasources.Get("es")
+		if err != nil {
+			return err
+		}
+
+		i, err := datasource(u)
 		if err != nil {
 			return err
 		}
@@ -207,7 +218,12 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := datasources.NewElasticsearchIndex(u)
+		datasource, err := datasources.Get("es")
+		if err != nil {
+			return err
+		}
+
+		i, err := datasource(u)
 		if err != nil {
 			return err
 		}
@@ -234,7 +250,12 @@ func (c *connection) DiscoverFields(event map[string]interface{}) error {
 			return err
 		}
 
-		i, err := datasources.NewElasticsearchIndex(u)
+		datasource, err := datasources.Get("es")
+		if err != nil {
+			return err
+		}
+
+		i, err := datasource(u)
 		if err != nil {
 			return err
 		}
@@ -282,7 +303,8 @@ func (c *connection) readPump() {
 		log.Debug("Message", string(message))
 
 		v := map[string]interface{}{}
-		if err := json.NewDecoder(bytes.NewBuffer(message)).Decode(&v); err != nil {
+		if err := json.NewDecoder(
+			bytes.NewBuffer(message)).Decode(&v); err != nil {
 			log.Error("Error decoding message: ", err.Error())
 
 			c.send <- &ErrorMessage{
@@ -294,6 +316,16 @@ func (c *connection) readPump() {
 		}
 
 		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					trace := make([]byte, 1024)
+					count := runtime.Stack(trace, true)
+					log.Error("Error: %s", err)
+					log.Debug("Stack of %d bytes: %s\n", count, trace)
+					return
+				}
+			}()
+
 			t := v["type"].(string)
 			switch t {
 			case ActionTypeItemsRequest:
