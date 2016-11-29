@@ -141,5 +141,6 @@ $ cd marija
 ## Copyright and license
 
 Code and documentation copyright 2016 Remco Verhoef.
+
 Code released under [the Apache license](LICENSE).
 
