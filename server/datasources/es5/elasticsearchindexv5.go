@@ -3,7 +3,6 @@ package es5
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	log2 "log"
 	"net/url"
 	"os"
@@ -16,29 +15,19 @@ import (
 )
 
 var (
-	_ = datasources.Register("es5", NewElasticsearchIndexV5)
+	_ = datasources.Register("es", NewElasticsearchIndexV5)
 )
 
 func NewElasticsearchIndexV5(u *url.URL) (datasources.Index, error) {
-	fmt.Println("Elasticsearch v5", u.String())
-
 	errorlog := log2.New(os.Stdout, "APP ", log2.LstdFlags)
 
 	u2 := *u
 	u2.Path = ""
 
-	client, err := elastic.NewClient(elastic.SetURL(u2.String()), elastic.SetSniff(true), elastic.SetErrorLog(errorlog))
+	client, err := elastic.NewClient(elastic.SetURL(u2.String()), elastic.SetSniff(false), elastic.SetErrorLog(errorlog))
 	if err != nil {
 		return nil, err
 	}
-
-	// Ping the Elasticsearch server to get e.g. the version number
-	info, code, err := client.Ping(u.String()).Do(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Elasticsearch returned with code %d and version %s", code, info.Version.Number)
 
 	// check version here, and return appropriate version
 	return &ElasticsearchIndexV5{

@@ -16,10 +16,7 @@ import (
 
 	"github.com/dutchcoders/marija/server/datasources"
 
-	_ "github.com/dutchcoders/marija/server/datasources/es"
-	_ "github.com/dutchcoders/marija/server/datasources/es2"
 	_ "github.com/dutchcoders/marija/server/datasources/es5"
-
 	"github.com/gorilla/websocket"
 )
 
