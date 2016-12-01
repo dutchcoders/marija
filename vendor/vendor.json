@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "7Mdvs8gu+INFXg+nfDsIwdxWUJ0=",
+			"checksumSHA1": "d4jtIPA5VFQTgs+lCEtFcAgQdo0=",
 			"path": "github.com/dutchcoders/marija-web",
-			"revision": "b3e31bd1a3d9395d5131a4470afbefb1f564941f",
-			"revisionTime": "2016-12-01T07:59:44Z"
+			"revision": "1dde9620a0db94bd157da5e7817ef41121c19de1",
+			"revisionTime": "2016-12-01T15:03:42Z"
 		},
 		{
 			"checksumSHA1": "bGdOim32+2dyKoQEtwW1PNwcdBc=",
