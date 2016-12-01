@@ -2,7 +2,6 @@ language: go
 
 env:
   - GIMME_OS=linux GIMME_ARCH=amd64
-  - GIMME_OS=darwin GIMME_ARCH=amd64
 
 go:
   - master
