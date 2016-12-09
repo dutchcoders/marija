@@ -97,10 +97,12 @@ Contributions are welcome.
 
 Fork Marija upstream source repository to your own personal repository. Copy the URL for marija from your personal github repo (you will need it for the git clone command below).
 
+```sh
 $ mkdir -p $GOPATH/src/github.com/marija
 $ cd $GOPATH/src/github.com/marija
 $ git clone <paste saved URL for personal forked marija repo>
 $ cd marija
+```
 
 ###  Developer Guidelines
 ``Marija`` community welcomes your contribution. To make the process as seamless as possible, we ask for the following:
