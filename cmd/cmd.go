@@ -10,11 +10,6 @@ import (
 )
 
 var Version = "0.1"
-
-var format = logging.MustStringFormatter(
-	"%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}",
-)
-
 var helpTemplate = `NAME:
 {{.Name}} - {{.Usage}}
 
@@ -89,6 +84,7 @@ func New() *Cmd {
 		srvr := server.New(
 			server.Address(c.String("port")),
 			server.Path(c.String("path")),
+			server.Config(c.String("config")),
 		)
 
 		srvr.Run()

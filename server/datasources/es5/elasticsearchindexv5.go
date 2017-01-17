@@ -3,59 +3,98 @@ package es5
 import (
 	"context"
 	"encoding/json"
+
+	"github.com/op/go-logging"
 	log2 "log"
+
 	"net/url"
 	"os"
 	"path"
-	"strings"
 
 	elastic "gopkg.in/olivere/elastic.v5"
 
+	"fmt"
 	"github.com/dutchcoders/marija/server/datasources"
 )
 
-var (
-	_ = datasources.Register("es", NewElasticsearchIndexV5)
-)
+var log = logging.MustGetLogger("marija/datasources/elasticsearch")
 
-func NewElasticsearchIndexV5(u *url.URL) (datasources.Index, error) {
-	errorlog := log2.New(os.Stdout, "APP ", log2.LstdFlags)
+type Elasticsearch struct {
+	client *elastic.Client
+	URL    url.URL
 
-	u2 := *u
-	u2.Path = ""
+	Username string
+	Password string
+}
 
-	client, err := elastic.NewClient(elastic.SetURL(u2.String()), elastic.SetSniff(false), elastic.SetErrorLog(errorlog))
-	if err != nil {
-		return nil, err
+func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
+	data, _ := p.(map[string]interface{})
+
+	username := ""
+	if v, ok := data["username"]; !ok {
+	} else if v, ok := v.(string); !ok {
+	} else {
+		username = v
 	}
 
-	// check version here, and return appropriate version
-	return &ElasticsearchIndexV5{
-		client: client,
-		u:      u,
-	}, nil
+	password := ""
+	if v, ok := data["password"]; !ok {
+	} else if v, ok := v.(string); !ok {
+	} else {
+		password = v
+	}
+
+	if v, ok := data["url"]; !ok {
+	} else if v, ok := v.(string); !ok {
+	} else if u, err := url.Parse(v); err != nil {
+		return err
+	} else {
+		m.URL = *u
+
+		u.Path = ""
+
+		errorlog := log2.New(os.Stdout, "APP ", log2.LstdFlags)
+		params := []elastic.ClientOptionFunc{
+			elastic.SetURL(u.String()),
+			elastic.SetSniff(false),
+			elastic.SetErrorLog(errorlog),
+		}
+
+		if username != "" {
+			params = append(params, elastic.SetBasicAuth(username, password))
+		}
+
+		if client, err := elastic.NewClient(
+			params...,
+		); err != nil {
+			return fmt.Errorf("Error connecting to: %s: %s", u.String(), err)
+		} else {
+			m.client = client
+		}
+	}
+
+	return nil
 }
 
-type ElasticsearchIndexV5 struct {
-	client *elastic.Client
-	u      *url.URL
-}
-
-func (i *ElasticsearchIndexV5) Search(so datasources.SearchOptions) ([]datasources.Item, error) {
+func (i *Elasticsearch) Search(so datasources.SearchOptions) ([]datasources.Item, int, error) {
 	hl := elastic.NewHighlight()
 	hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 	hl = hl.PreTags("<em>").PostTags("</em>")
 
+	index := path.Base(i.URL.Path)
+
 	q := elastic.NewQueryStringQuery(so.Query)
 	results, err := i.client.Search().
-		Index(path.Base(i.u.Path)).
+		Index(index).
 		Highlight(hl).
 		Query(q).
 		From(so.From).Size(so.Size).
 		Do(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+
+	log.Debugf("%#v\n", results)
 
 	items := make([]datasources.Item, len(results.Hits.Hits))
 	for i, hit := range results.Hits.Hits {
@@ -71,30 +110,7 @@ func (i *ElasticsearchIndexV5) Search(so datasources.SearchOptions) ([]datasourc
 		}
 	}
 
-	return items, nil
-}
-
-func (i *ElasticsearchIndexV5) Indices() ([]string, error) {
-	stats, err := i.client.IndexStats().
-		Metric("index").
-		Do(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	indices := []string{}
-	for k, _ := range stats.Indices {
-		if strings.HasPrefix(k, ".") {
-			continue
-		}
-
-		// todo(nl5887):
-		// should create index url here, and we don't want to return strings,
-		// but index object with name and url
-		indices = append(indices, k)
-	}
-
-	return indices, nil
+	return items, int(results.Hits.TotalHits), nil
 }
 
 func flatten(root string, m map[string]interface{}) (fields []datasources.Field) {
@@ -124,13 +140,16 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 	return
 }
 
-func (i *ElasticsearchIndexV5) Fields(index string) (fields []datasources.Field, err error) {
+func (i *Elasticsearch) Fields() (fields []datasources.Field, err error) {
+	index := path.Base(i.URL.Path)
+	log.Debug("Using index: ", path.Base(i.URL.Path))
+
 	mapping, err := i.client.GetMapping().
 		Index(index).
 		Do(context.Background())
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, err.Error())
 	}
 
 	mapping = mapping[index].(map[string]interface{})

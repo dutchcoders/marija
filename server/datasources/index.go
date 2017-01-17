@@ -1,7 +1,6 @@
 package datasources
 
 type Index interface {
-	Search(SearchOptions) ([]Item, error)
-	Indices() ([]string, error)
-	Fields(string) ([]Field, error)
+	Search(SearchOptions) ([]Item, int, error)
+	Fields() ([]Field, error)
 }

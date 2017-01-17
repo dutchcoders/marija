@@ -1,0 +1,21 @@
+[datasource]
+
+[datasource.elasticsearch]
+type="elasticsearch"
+url="http://127.0.0.1:9200/demo_index"
+#username=
+#password=
+
+[datasource.twitter]
+type="twitter"
+consumer_key=""
+consumer_secret=""
+token=""
+token_secret=""
+
+[datasource.blockchain]
+type="blockchain"
+
+[[logging]]
+output = "stdout"
+level = "debug"

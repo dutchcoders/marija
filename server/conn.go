@@ -9,15 +9,20 @@ import (
 	"encoding/json"
 	_ "log"
 	"net/http"
-	"net/url"
-	"path"
 	"runtime"
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
 
+	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
 	_ "github.com/dutchcoders/marija/server/datasources/es5"
+	_ "github.com/dutchcoders/marija/server/datasources/twitter"
 	"github.com/gorilla/websocket"
+	"github.com/op/go-logging"
+)
+
+var format = logging.MustStringFormatter(
+	"%{color}%{time:15:04:05.000} %{shortfunc} ▶ %{level:.4s} %{id:03x}%{color:reset} %{message}",
 )
 
 const (
@@ -57,31 +62,18 @@ const (
 	ActionTypeFieldsReceive = "FIELDS_RECEIVE"
 )
 
-func Debug2() func(*Server) {
-	return func(server *Server) {
-		server.debug = true
-	}
-}
-
-func Path(val string) func(*Server) {
-	return func(server *Server) {
-		server.path = val
-	}
-}
-
-func Address(addr string) func(*Server) {
-	return func(server *Server) {
-		server.address = addr
-	}
-}
-
 type connection struct {
-	ws   *websocket.Conn
-	send chan json.Marshaler
-	b    int
+	ws     *websocket.Conn
+	send   chan json.Marshaler
+	b      int
+	server *Server
 }
 
 type InitialStateMessage struct {
+	Datasources []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"datasources"`
 }
 
 func (em *InitialStateMessage) MarshalJSON() ([]byte, error) {
@@ -118,6 +110,7 @@ type ResultsMessage struct {
 	Server  string             `json:"server"`
 	Query   string             `json:"query"`
 	Color   string             `json:"color"`
+	Total   int                `json:"total"`
 	Results []datasources.Item `json:"results"`
 }
 
@@ -169,24 +162,17 @@ func (em *FieldsMessage) MarshalJSON() ([]byte, error) {
 }
 
 func (c *connection) Search(event map[string]interface{}) error {
-	indexes := event["host"].([]interface{})
+	indexes := event["datasources"].([]interface{})
 	for _, index := range indexes {
-		u, err := url.Parse(index.(string))
-		if err != nil {
-			return err
+		var datasource datasources.Index
+		if d, ok := c.server.Datasources[index.(string)]; !ok {
+			log.Errorf("Could not find datasource: %s", index.(string))
+			continue
+		} else {
+			datasource = d
 		}
 
-		datasource, err := datasources.Get("es")
-		if err != nil {
-			return err
-		}
-
-		i, err := datasource(u)
-		if err != nil {
-			return err
-		}
-
-		items, err := i.Search(datasources.SearchOptions{
+		items, total, err := datasource.Search(datasources.SearchOptions{
 			From:  int(event["from"].(float64)),
 			Size:  int(event["size"].(float64)),
 			Query: event["query"].(string),
@@ -199,33 +185,30 @@ func (c *connection) Search(event map[string]interface{}) error {
 			Query:   event["query"].(string),
 			Color:   event["color"].(string),
 			Server:  index.(string),
+			Total:   total,
 			Results: items,
 		}
+
+		log.Debugf("Sent %d records.", len(items))
 	}
 
 	return nil
 }
 
+/*
 // return complete url instead of only name of index?
 func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 	hosts := event["host"].([]interface{})
 	for _, host := range hosts {
-		u, err := url.Parse(host.(string))
-		if err != nil {
-			return err
+		var datasource datasources.Index
+		if d, ok := c.server.Datasources[host.(string)]; !ok {
+			log.Errorf("Could not find datasource: %s", host.(string))
+			continue
+		} else {
+			datasource = d
 		}
 
-		datasource, err := datasources.Get("es")
-		if err != nil {
-			return err
-		}
-
-		i, err := datasource(u)
-		if err != nil {
-			return err
-		}
-
-		indices, err := i.Indices()
+		indices, err := datasource.Indices()
 		if err != nil {
 			return err
 		}
@@ -238,32 +221,26 @@ func (c *connection) DiscoverIndices(event map[string]interface{}) error {
 
 	return nil
 }
+*/
 
 func (c *connection) DiscoverFields(event map[string]interface{}) error {
-	servers := event["host"].([]interface{})
-	for _, index := range servers {
-		u, err := url.Parse(index.(string))
-		if err != nil {
-			return err
+	servers := event["datasources"].([]interface{})
+	for _, server := range servers {
+		var datasource datasources.Index
+		if d, ok := c.server.Datasources[server.(string)]; !ok {
+			log.Errorf("Could not find datasource: %s", server.(string))
+			continue
+		} else {
+			datasource = d
 		}
 
-		datasource, err := datasources.Get("es")
-		if err != nil {
-			return err
-		}
-
-		i, err := datasource(u)
-		if err != nil {
-			return err
-		}
-
-		fields, err := i.Fields(path.Base(u.Path))
+		fields, err := datasource.Fields()
 		if err != nil {
 			return err
 		}
 
 		c.send <- &FieldsMessage{
-			Server: index.(string),
+			Server: server.(string),
 			Fields: fields,
 		}
 	}
@@ -285,8 +262,24 @@ func (c *connection) readPump() {
 		return nil
 	})
 
+	datasources := make([]struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}, 0, len(c.server.Datasources))
+	for k := range c.server.Datasources {
+		datasources = append(datasources, struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}{
+			ID:   k,
+			Name: k,
+		})
+	}
+
 	// send initial state
-	c.send <- &InitialStateMessage{}
+	c.send <- &InitialStateMessage{
+		Datasources: datasources,
+	}
 
 	for {
 		_, message, err := c.ws.ReadMessage()
@@ -318,7 +311,7 @@ func (c *connection) readPump() {
 					trace := make([]byte, 1024)
 					count := runtime.Stack(trace, true)
 					log.Error("Error: %s", err)
-					log.Debug("Stack of %d bytes: %s\n", count, trace)
+					log.Debug("Stack of %d bytes: %s\n", count, string(trace))
 					return
 				}
 			}()
@@ -328,15 +321,6 @@ func (c *connection) readPump() {
 			case ActionTypeItemsRequest:
 				if err := c.Search(v); err != nil {
 					log.Error("Error occured during search: %s", err.Error())
-					c.send <- &ErrorMessage{
-						Query:   "",
-						Color:   "",
-						Message: err.Error(),
-					}
-				}
-			case ActionTypeIndicesRequest:
-				if err := c.DiscoverIndices(v); err != nil {
-					log.Error("Error occured during index discovery: %s", err.Error())
 					c.send <- &ErrorMessage{
 						Query:   "",
 						Color:   "",
@@ -397,14 +381,18 @@ func (c *connection) writePump() {
 }
 
 // serveWs handles websocket requests from the peer.
-func serveWs(w http.ResponseWriter, r *http.Request) {
+func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 
-	c := &connection{send: make(chan json.Marshaler, 256), ws: ws}
+	c := &connection{
+		send:   make(chan json.Marshaler, 256),
+		ws:     ws,
+		server: s,
+	}
 
 	h.register <- c
 

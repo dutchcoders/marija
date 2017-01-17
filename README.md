@@ -44,14 +44,12 @@ $ brew tap dutchcoders/homebrew-marija
 $ brew install marija
 ```
 
-
 ## Usage
 
 There are a few steps you need to take before you can start.
 
-* add your elasticsearch server to the configuration
-* use the cloud icon to retrieve the indexes
-* enable the index(es) you want to search in using the eye icon
+* add your datasources to config.toml
+* enable the datasources you want to search in using the eye icon
 * use the refresh icon to refresh the list of available fields
 * add the fields you want to use as nodes
 
@@ -59,6 +57,31 @@ There are a few steps you need to take before you can start.
 * and add some normalizations (eg removing part of the identifier) using regular expressions
 
 You're all setup now, just type your queries and start exploring your data.
+
+## Configuration
+
+```
+[datasource]
+[datasource.elasticsearch]
+type="elasticsearch"
+url="http://127.0.0.1:9200/demo_index"
+#username=
+#password=
+
+[datasource.twitter]
+type="twitter"
+consumer_key=""
+consumer_secret=""
+token=""
+token_secret=""
+
+[datasource.blockchain]
+type="blockchain"
+
+[[logging]]
+output = "stdout"
+level = "debug"
+```
 
 ## Features
 
