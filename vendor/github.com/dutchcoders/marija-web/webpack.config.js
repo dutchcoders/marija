@@ -19,7 +19,8 @@ module.exports = {
         })
     ],
     resolve: {
-        modulesDirectories: ['node_modules']
+        modulesDirectories: ['node_modules', 'src'],
+        extension: ['', '.js', '.scss']
     },
     output: {
         path: [__dirname, 'dist'].join(path.sep),

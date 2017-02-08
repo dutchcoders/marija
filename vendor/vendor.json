@@ -3,6 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
+			"path": "-vvv",
+			"revision": ""
+		},
+		{
 			"path": "appengine",
 			"revision": ""
 		},
@@ -51,10 +55,10 @@
 			"revisionTime": "2016-10-11T17:09:00Z"
 		},
 		{
-			"checksumSHA1": "hRQvz5+o9OMt9Z6NGiBswAoLcYA=",
+			"checksumSHA1": "cQ7XtWF4EJ5xbG5kz5Zop6f0Sdw=",
 			"path": "github.com/dutchcoders/marija-web",
-			"revision": "2d71f7286c620ed3d0ca295caf0586e04a462b45",
-			"revisionTime": "2017-01-23T11:20:06Z"
+			"revision": "1f1963bf67f9e9299e7980adca3a6ee1b2528bf5",
+			"revisionTime": "2017-02-08T13:56:51Z"
 		},
 		{
 			"checksumSHA1": "bGdOim32+2dyKoQEtwW1PNwcdBc=",
