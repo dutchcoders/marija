@@ -2,12 +2,11 @@
 
 # Marija [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/marija?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/dutchcoders/marija)](https://goreportcard.com/report/dutchcoders/marija) [![Docker pulls](https://img.shields.io/docker/pulls/marija/marija.svg)](https://hub.docker.com/r/marija/marija/) [![Build Status](https://travis-ci.org/dutchcoders/marija.svg?branch=master)](https://travis-ci.org/dutchcoders/marija)
 
-Marija is a data exploration and visualisation tool for (un)structured Elasticsearch data. Using Marija you'll be able to see relations 
-between data of different datasources without any modifications to your data or index.
+Marija is a data exploration and visualisation tool for (un)structured data. There are several datasources possible, but currently [Elasticsearch](https://www.elastic.co/), Twitter and Bitcoin are supported. With Marija you'll be able to see relations between data of different datasources without modifying your data or index.
 
-Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
+Currently, Marija is being used to identify related spamruns, but it can be used for all kinds of different data sets.
 
-Disclaimer: Marija is still in alpha, expect (many) bugs. Please report bugs in the issue tracker.
+Disclaimer: Marija is still in an alpha stage, expect (many) bugs and changes. Please report bugs in the issue tracker.
 
 # Screenshot
 
@@ -23,18 +22,13 @@ $ docker run -d -p 8080:8080 --name marija marija/marija
 ```
 
 ### Installation from source
+Marija depends on Golang version 1.7 or higher. If you do not have a working Golang environment setup or are using an older version, please follow [Golang Installation Guide](https://golang.org/doc/install).
+Elasticsearch is also 
 
-#### Install Golang
-
-If you do not have a working Golang environment setup please follow [Golang Installation Guide](https://golang.org/doc/install).
-
-#### Install Marija
-
-Installation of Marija is easy.
+Installing Marija is easy.
 
 ```
 $ go get github.com/dutchcoders/marija
-$ marija
 ```
 
 ### Installation using Homebrew (macOS)
@@ -44,44 +38,52 @@ $ brew tap dutchcoders/homebrew-marija
 $ brew install marija
 ```
 
+### Running Marija
+First, add your datasources to config.toml. To be able to use Elasticsearch as a datasource it should be installed, but Bitcoin and Twitter searches work out of the box. 
+When finished, run the application by simply invoking ```marija```.
+		
 ## Usage
+ Take the following steps in the configuration window in the application:
 
-There are a few steps you need to take before you can start.
-
-* add your datasources to config.toml
-* enable the datasources you want to search in using the eye icon
-* use the refresh icon to refresh the list of available fields
-* add the fields you want to use as nodes
-
+* enable the datasources by clicking on the eye icon next to the source.
+* click the refresh icon of the FIELDS section to display the list of available fields for that datasource
+* add the fields you want to use as nodes in the overview
 * additionally you can add the date field you want to use for the histogram
 * and add some normalizations (eg removing part of the identifier) using regular expressions
 
-You're all setup now, just type your queries and start exploring your data.
+You're all set up now, just type your queries and start exploring your data in the mesh. 
+
+For detailed information, the nodes in the mesh can be selected, which adds them to the Node window on the righthand side of the screen. When selecting one or more nodes, the table view below can be opened. The data itself is displayed here, and columns can be added to the view. 
 
 ## Demo
 
-There is an online demo available at [http://demo.marija.io/](http://demo.marija.io/). 
+There is an online demo available at [http://demo.marija.io/](http://demo.marija.io/) that contains data of several sources. These are three examples.
 
 ### Enron demo
 
-Enable the datasource enron, next click on refresh to retrieve the fields. Now you can add for example fields **to**, **recipients**, **bcc**, **cc** and **sender**. Now you can search for keywords and see the relations between the emails. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
+Enable the datasource enron by clicking on the eye icon in the configuration window. Next click on the refresh icon to retrieve the fields. Now you can add fields like  **to**, **recipients**, **bcc**, **cc** and **sender** and search for keywords in the search bar on top.
 
 ### Twitter demo
 
-Enable the datasource twitter, next click on refresh to retrieve the fields. Now you can add for example fields **in_reply_to_screen_name**, **user.screen_name**, **user.name**, **mentions** and **tags**. Now you can search for keywords and see the relations between tweets. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
+Enable the datasource twitter by clicking on the eye icon in the configuration window. Next click on the refresh icon to retrieve the fields. Now you can add fields like **in_reply_to_screen_name**, **user.screen_name**, **user.name**, **mentions** and **tags**. Now you can search for keywords and see the relations between tweets. 
 
 ### Blockchain demo
 
-Enable the datasource blockchain, next click on refresh to retrieve the fields. Now you can add for example fields **input_tag**, **output** and **relayed_by**. Now you can search for bitcoin addresses (17TaZ6qkf7ot9nkFLZPV9kjbWByPfjm9c4, 1ABwEbyQ67U2PqbWJCyhL4LZYF3agxVGDe) and see the relations between transactions. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself. 
+Enable the datasource blockchain, next click on refresh to retrieve the fields. Now you can add for example fields **input_tag**, **output** and **relayed_by**. Now you can search for bitcoin addresses (17TaZ6qkf7ot9nkFLZPV9kjbWByPfjm9c4, 1ABwEbyQ67U2PqbWJCyhL4LZYF3agxVGDe) and see how transactions relate. 
 
 
 ## Configuration
-
+Go to the Marija installation directory and copy the sample configuration file.
+``` 
+cd go/src/github.com/dutchcoders/marija/
+cp config.toml.sample config.toml 
 ```
-[datasource]
-[datasource.elasticsearch]
-type="elasticsearch"
-url="http://127.0.0.1:9200/demo_index"
+If Elasticsearch is not installed, comment it out.
+```
+#[datasource]
+#[datasource.elasticsearch]
+#type="elasticsearch"
+#url="http://127.0.0.1:9200/demo_index"
 #username=
 #password=
 
@@ -106,7 +108,7 @@ level = "debug"
 * different fields can be used as node identifier
 * identifiers can be normalized through normalization regular expressions
 * each field will have its own icon
-* query indexes using elasticsearch queries like your used to do
+* query indexes using Elasticsearch queries like you are used to
 * histogram view to identify nodes in time
 * select and delete nodes
 * select related nodes, deselect all but selected nodes
