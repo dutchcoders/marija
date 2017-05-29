@@ -41,6 +41,7 @@ $ brew install marija
 ### Running Marija
 First, add your datasources to config.toml. To be able to use Elasticsearch as a datasource it should be installed, but Bitcoin and Twitter searches work out of the box. 
 When finished, run the application by simply invoking ```marija```.
+Optionally specify the configuration file with the parameter ```--config config.toml```. Open http://127.0.0.1:8080 in your browser to view the application.
 		
 ## Usage
  Take the following steps in the configuration window in the application:
@@ -78,7 +79,7 @@ Go to the Marija installation directory and copy the sample configuration file.
 cd go/src/github.com/dutchcoders/marija/
 cp config.toml.sample config.toml 
 ```
-If Elasticsearch is not installed, comment it out.
+If Elasticsearch is not installed, comment it out to prevent errors.
 ```
 #[datasource]
 #[datasource.elasticsearch]
