@@ -57,20 +57,7 @@ You're all set up now, just type your queries and start exploring your data in t
 For detailed information, the nodes in the mesh can be selected, which adds them to the Node window on the righthand side of the screen. When selecting one or more nodes, the table view below can be opened. The data itself is displayed here, and columns can be added to the view. 
 
 ## Demo
-
-There is an online demo available at [http://demo.marija.io/](http://demo.marija.io/) that contains data of several sources. These are three examples.
-
-### Enron demo
-
-Enable the datasource enron by clicking on the eye icon in the configuration window. Next click on the refresh icon to retrieve the fields. Now you can add fields like  **to**, **recipients**, **bcc**, **cc** and **sender** and search for keywords in the search bar on top.
-
-### Twitter demo
-
-Enable the datasource twitter by clicking on the eye icon in the configuration window. Next click on the refresh icon to retrieve the fields. Now you can add fields like **in_reply_to_screen_name**, **user.screen_name**, **user.name**, **mentions** and **tags**. Now you can search for keywords and see the relations between tweets. 
-
-### Blockchain demo
-
-Enable the datasource blockchain, next click on refresh to retrieve the fields. Now you can add for example fields **input_tag**, **output** and **relayed_by**. Now you can search for bitcoin addresses (17TaZ6qkf7ot9nkFLZPV9kjbWByPfjm9c4, 1ABwEbyQ67U2PqbWJCyhL4LZYF3agxVGDe) and see how transactions relate. 
+Try our demo with Elasticsearch, Twitter and Bitcoin datasources [here](DEMO.md).
 
 
 ## Configuration
@@ -84,7 +71,7 @@ If Elasticsearch is not installed, comment it out to prevent errors.
 #[datasource]
 #[datasource.elasticsearch]
 #type="elasticsearch"
-#url="http://127.0.0.1:9200/demo_index"
+#url="http://127.0.0.1:9200/demo_index"',
 #username=
 #password=
 
@@ -102,19 +89,20 @@ type="blockchain"
 output = "stdout"
 level = "debug"
 ```
+More on configuring datasources [here](CONFIGURATION.md).
 
 ## Features
 
-* work on multiple servers and indexes at the same time
-* different fields can be used as node identifier
-* identifiers can be normalized through normalization regular expressions
-* each field will have its own icon
-* query indexes using Elasticsearch queries like you are used to
-* histogram view to identify nodes in time
+* works on local and remote datasources simultaneously
+* multiple fields can be used as a node identifier
+* identifiers can be normalized through regular expressions
+* each unique datasource field has its own icon
+* indexes can be queried using regular Elasticsearch syntax
+* a histogram view displays nodes on a time scale
 * select and delete nodes
 * select related nodes, deselect all but selected nodes
 * zoom and move nodes
-* navigate through selected data using the tableview
+* navigate through selected data using the table view
 
 ## Workspace
 
