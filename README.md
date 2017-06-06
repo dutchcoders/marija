@@ -24,16 +24,15 @@ View the [configuration](https://github.com/Einzelganger/marija/wiki/Configurati
 * multiple fields can be used as a node identifier
 * identifiers can be normalized through regular expressions
 * each unique datasource field has its own icon
-* indexes can be queried using regular Elasticsearch syntax
+* indexes can be queried using regular [Elasticsearch syntax](https://lucene.apache.org/core/2_9_4/queryparsersyntax.html)
 * a histogram view displays nodes on a time scale
 * select and delete nodes
 * select related nodes, deselect all but selected nodes
 * zoom and move nodes
 * navigate through selected data using the table view
 
-## Workspace
 
-Currently only one single workspace is supported. The workspace is being stored in the local storage of your browser. Next versions will support loading and saving multiple workspaces.
+> **Note**: Currently only one single workspace is supported. The workspace is being stored in the local storage of your browser. Next versions will support loading and saving multiple workspaces.
 
 ## Todo
 
