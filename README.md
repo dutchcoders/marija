@@ -4,16 +4,15 @@ Marija is a data exploration and visualization tool for (un)structured data. Man
 
 Disclaimer: Marija is still in an alpha stage, expect (many) bugs and changes. Please report bugs in the issue tracker.
 
-### Preview
+<h3 align="center">Preview</h3>
 
 ![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-17%20at%2009.46.31.png?raw=true)
 
 ## Demo
-Try our demo with Elasticsearch, Twitter and Bitcoin datasource [here](http://demo.marija.io).
+Try our demo with Elasticsearch, Twitter and Bitcoin datasource [here](http://demo.marija.io). Usage information on the demo application is also [provided](Demo). 
 
 ## Installation
-Instructions are provided for installation with Docker, macOS (Homebrew) and from source. 
-For an installation from source, Golang must be installed.
+[Instructions](Installation) are provided for installation with Docker, macOS (Homebrew) and from source. For an installation from source, [Golang](https://golang.org/) must be installed.
 
 ## Configuration
 Configuration is easy, just modify the TOML file and change the data sources as you see fit.
@@ -42,13 +41,17 @@ Currently only one single workspace is supported. The workspace is being stored 
 
 ## Roadmap
 
-We are working towards a first version. 
+We are working towards a stable version. These are some of the items on our feature wishlist. See the [issue list](https://github.com/Einzelganger/marija/issues) for features and bugs.
 
-* analyze data at real-time
-* create specialized tools based on Marija for graphing for example packet traffic flows. 
-* see issue list for features and bugs
+* analyze data in real-time
+* create specialized tools based on Marija, for example a tool to graph packet traffic flows. 
+
 
 ## Contribute
 
-Contributions are [welcome](https://github.com/Einzelganger/marija/wiki/Contribution_Guide.md).
+Contributions are [welcome](Contribution_Guide).
+
+## About
+
+Marija is created by Dutchcoders. Find us [here](About).
 
