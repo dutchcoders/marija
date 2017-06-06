@@ -12,7 +12,7 @@ Disclaimer: Marija is still in an alpha stage, expect (many) bugs and changes. P
 Try our demo with Elasticsearch, Twitter and Bitcoin datasource [here](http://demo.marija.io). Usage information on the demo application is also [provided](https://github.com/Einzelganger/marija/wiki/Demo). 
 
 ## Installation
-[Instructions](Installation) are provided for installation with Docker, macOS (Homebrew) and from source. For an installation from source, [Golang](https://golang.org/) must be installed.
+[Instructions](https://github.com/Einzelganger/marija/wiki/Installation) are provided for installation with Docker, macOS (Homebrew) and from source. For an installation from source, [Golang](https://golang.org/) must be installed.
 
 ## Configuration
 Configuration is easy, just modify the TOML file and change the data sources as you see fit.
