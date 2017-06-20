@@ -1,121 +1,38 @@
-![](https://github.com/dutchcoders/marija-screenshots/blob/master/marija.png?raw=true)
+<h1 align="center"><img align="middle" src="https://github.com/dutchcoders/marija-screenshots/blob/master/marija.png?raw=true">Marija</h1>
 
-# Marija [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dutchcoders/marija?utm_source=badge&utm_medium=badge&utm_campaign=&utm_campaign=pr-badge&utm_content=badge) [![Go Report Card](https://goreportcard.com/badge/dutchcoders/marija)](https://goreportcard.com/report/dutchcoders/marija) [![Docker pulls](https://img.shields.io/docker/pulls/marija/marija.svg)](https://hub.docker.com/r/marija/marija/) [![Build Status](https://travis-ci.org/dutchcoders/marija.svg?branch=master)](https://travis-ci.org/dutchcoders/marija)
+Marija is a data exploration and visualization tool for (un)structured data. Many [data sources](https://github.com/Einzelganger/marija/wiki/Datasources) will be possible in the future, but currently [Elasticsearch](https://www.elastic.co/), Twitter and Bitcoin are supported. With Marija you'll be able to see relations between data of different data sources without modifying your data or index. This works by creating a node for each datapoint and connecting related nodes to each other, creating a mesh structure. Each node can be clicked to view more detailed information and if spatial information is available, a histogram can be created for that node. Currently, Marija is being used to identify relations between spam campaigns, but it can be used for all kinds of different data sets. Read an article on using Marija on the Freedom Hosting hack data [here](https://hackernoon.com/analysing-freedom-hosting-ii-data-with-marija-fe64984a4e7f).
 
-Marija is a data exploration and visualisation tool for (un)structured Elasticsearch data. Using Marija you'll be able to see relations 
-between data of different datasources without any modifications to your data or index.
+Disclaimer: Marija is still in an alpha stage, expect (many) bugs and changes. Please report bugs in the issue tracker.
 
-Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
-
-Disclaimer: Marija is still in alpha, expect (many) bugs. Please report bugs in the issue tracker.
-
-# Screenshot
+<h3 align="center">User Interface</h3>
 
 ![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-17%20at%2009.46.31.png?raw=true)
 
-## Install
-
-### Using Docker
-
-```
-$ docker pull marija/marija
-$ docker run -d -p 8080:8080 --name marija marija/marija
-```
-
-### Installation from source
-
-#### Install Golang
-
-If you do not have a working Golang environment setup please follow [Golang Installation Guide](https://golang.org/doc/install).
-
-#### Install Marija
-
-Installation of Marija is easy.
-
-```
-$ go get github.com/dutchcoders/marija
-$ marija
-```
-
-### Installation using Homebrew (macOS)
-
-```
-$ brew tap dutchcoders/homebrew-marija
-$ brew install marija
-```
-
-## Usage
-
-There are a few steps you need to take before you can start.
-
-* add your datasources to config.toml
-* enable the datasources you want to search in using the eye icon
-* use the refresh icon to refresh the list of available fields
-* add the fields you want to use as nodes
-
-* additionally you can add the date field you want to use for the histogram
-* and add some normalizations (eg removing part of the identifier) using regular expressions
-
-You're all setup now, just type your queries and start exploring your data.
-
 ## Demo
+Try our demo with Elasticsearch, Twitter and Bitcoin datasource [here](http://demo.marija.io). Usage information on the demo application is also [provided](https://github.com/Einzelganger/marija/wiki/Demo). 
 
-There is an online demo available at [http://demo.marija.io/](http://demo.marija.io/). 
-
-### Enron demo
-
-Enable the datasource enron, next click on refresh to retrieve the fields. Now you can add for example fields **to**, **recipients**, **bcc**, **cc** and **sender**. Now you can search for keywords and see the relations between the emails. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
-
-### Twitter demo
-
-Enable the datasource twitter, next click on refresh to retrieve the fields. Now you can add for example fields **in_reply_to_screen_name**, **user.screen_name**, **user.name**, **mentions** and **tags**. Now you can search for keywords and see the relations between tweets. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
-
-### Blockchain demo
-
-Enable the datasource blockchain, next click on refresh to retrieve the fields. Now you can add for example fields **input_tag**, **output** and **relayed_by**. Now you can search for bitcoin addresses (17TaZ6qkf7ot9nkFLZPV9kjbWByPfjm9c4, 1ABwEbyQ67U2PqbWJCyhL4LZYF3agxVGDe) and see the relations between transactions. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself. 
-
+## Installation
+[Instructions](https://github.com/Einzelganger/marija/wiki/Installation) are provided for installation with Docker, macOS (Homebrew) and from source. For an installation from source, [Golang](https://golang.org/) must be installed.
 
 ## Configuration
-
-```
-[datasource]
-[datasource.elasticsearch]
-type="elasticsearch"
-url="http://127.0.0.1:9200/demo_index"
-#username=
-#password=
-
-[datasource.twitter]
-type="twitter"
-consumer_key=""
-consumer_secret=""
-token=""
-token_secret=""
-
-[datasource.blockchain]
-type="blockchain"
-
-[[logging]]
-output = "stdout"
-level = "debug"
-```
+Configuration is easy, just modify the TOML file and change the data sources as you see fit.
+View the [configuration](https://github.com/Einzelganger/marija/wiki/Configuration) and [data sources](https://github.com/Einzelganger/marija/wiki/Datasources) topics for the details.
 
 ## Features
 
-* work on multiple servers and indexes at the same time
-* different fields can be used as node identifier
-* identifiers can be normalized through normalization regular expressions
-* each field will have its own icon
-* query indexes using elasticsearch queries like your used to do
-* histogram view to identify nodes in time
+* works on local and remote data sources simultaneously
+* multiple fields can be used as a node identifier
+* identifiers can be normalized through regular expressions
+* each unique datasource field has its own icon
+* indexes can be queried using regular [Elasticsearch syntax](https://lucene.apache.org/core/2_9_4/queryparsersyntax.html)
+* a histogram view displays nodes on a time scale
 * select and delete nodes
 * select related nodes, deselect all but selected nodes
 * zoom and move nodes
-* navigate through selected data using the tableview
+* navigate through selected data using the table view
 
-## Workspace
 
-Currently only one single workspace is supported. The workspace is being stored in the local storage of your browser. Next versions will support loading and saving multiple workspaces.
+> **Note**: Currently only one single workspace is supported. The workspace is being stored in the local storage of your browser. Next versions will support loading and saving multiple workspaces.
 
 ## Todo
 
@@ -123,67 +40,17 @@ Currently only one single workspace is supported. The workspace is being stored 
 
 ## Roadmap
 
-We're working towards a first version. 
+We are working towards a stable version. These are some of the items on our feature wishlist. See the [issue list](https://github.com/Einzelganger/marija/issues) for features and bugs.
 
-* analyze data at realtime
-* create specialized tools based on Marija for graphing for example packet traffic flows. 
-* see issue list for features and bugs
+* analyze data in real-time
+* create specialized tools based on Marija, for example a tool to graph packet traffic flows. 
+
 
 ## Contribute
 
-Contributions are welcome.
+Contributions are [welcome](https://github.com/Einzelganger/marija/wiki/Contribution_Guide).
 
-### Setup your Marija Github Repository
+## About
 
-Fork Marija upstream source repository to your own personal repository. Copy the URL for marija from your personal github repo (you will need it for the git clone command below).
-
-```sh
-$ mkdir -p $GOPATH/src/github.com/marija
-$ cd $GOPATH/src/github.com/marija
-$ git clone <paste saved URL for personal forked marija repo>
-$ cd marija
-```
-
-###  Developer Guidelines
-``Marija`` community welcomes your contribution. To make the process as seamless as possible, we ask for the following:
-* Go ahead and fork the project and make your changes. We encourage pull requests to discuss code changes.
-    - Fork it
-    - Create your feature branch (git checkout -b my-new-feature)
-    - Commit your changes (git commit -am 'Add some feature')
-    - Push to the branch (git push origin my-new-feature)
-    - Create new Pull Request
-
-* If you have additional dependencies for ``Marija``, ``Marija`` manages its dependencies using [govendor](https://github.com/kardianos/govendor)
-    - Run `go get foo/bar`
-    - Edit your code to import foo/bar
-    - Run `make pkg-add PKG=foo/bar` from top-level directory
-
-* If you have dependencies for ``Marija`` which needs to be removed
-    - Edit your code to not import foo/bar
-    - Run `make pkg-remove PKG=foo/bar` from top-level directory
-
-* When you're ready to create a pull request, be sure to:
-    - Have test cases for the new code. If you have questions about how to do it, please ask in your pull request.
-    - Run `make verifiers`
-    - Squash your commits into a single commit. `git rebase -i`. It's okay to force update your pull request.
-    - Make sure `go test -race ./...` and `go build` completes.
-
-* Read [Effective Go](https://github.com/golang/go/wiki/CodeReviewComments) article from Golang project
-    - `Marija` project is fully conformant with Golang style
-    - if you happen to observe offending code, please feel free to send a pull request
-
-## Creators
-
-**Remco Verhoef**
-- <https://twitter.com/remco_verhoef>
-- <https://twitter.com/dutchcoders>
-
-**Kevin Hoogerwerf**
-- <https://keybase.io/kevinh>
-
-## Copyright and license
-
-Code and documentation copyright 2016 Remco Verhoef.
-
-Code released under [the Apache license](LICENSE).
+Marija is created by Dutchcoders. Find us [here](https://github.com/Einzelganger/marija/wiki/About).
 
