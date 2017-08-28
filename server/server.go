@@ -10,6 +10,7 @@ import (
 
 	"github.com/dutchcoders/marija/server/datasources/blockchain"
 	"github.com/dutchcoders/marija/server/datasources/es5"
+	"github.com/dutchcoders/marija/server/datasources/solr"
 	"github.com/dutchcoders/marija/server/datasources/twitter"
 
 	web "github.com/dutchcoders/marija-web"
@@ -63,6 +64,12 @@ func (d *Datasources) UnmarshalTOML(p interface{}) error {
 				m[n] = nd
 			} else if v == "twitter" {
 				nd := &twitter.Twitter{}
+				if err := nd.UnmarshalTOML(d); err != nil {
+					return err
+				}
+				m[n] = nd
+			} else if v == "solr" {
+				nd := &solr.Solr{}
 				if err := nd.UnmarshalTOML(d); err != nil {
 					return err
 				}
