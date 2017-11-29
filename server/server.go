@@ -5,16 +5,15 @@ import (
 	_ "log"
 	"net/http"
 	"os"
+	"os/signal"
 
 	"github.com/dutchcoders/marija/server/datasources"
 
-	"github.com/dutchcoders/marija/server/datasources/blockchain"
 	"github.com/dutchcoders/marija/server/datasources/es5"
 	"github.com/dutchcoders/marija/server/datasources/solr"
 	"github.com/dutchcoders/marija/server/datasources/twitter"
 
 	web "github.com/dutchcoders/marija-web"
-	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fatih/color"
 	"github.com/op/go-logging"
 )
@@ -121,15 +120,39 @@ func (server *Server) Run() {
 
 	http.HandleFunc("/ws", server.serveWs)
 
-	fmt.Println(color.YellowString(fmt.Sprintf("Marija server started, listening on address %s.", server.address)))
+	fmt.Println(color.YellowString(`
+ __  __            _  _
+|  \/  | __ _ _ __(_)(_) __ _
+| |\/| |/ _' | '__| || |/ _' |
+| |  | | (_| | |  | || | (_| |
+|_|  |_|\__,_|_|  |_|/ |\__,_|
+                   |__/
+`))
+
+	fmt.Println(color.YellowString("Marija server started %s (%s)", Version, ShortCommitID))
+	fmt.Println(color.YellowString("Listening on address %s.", server.address))
 
 	defer func() {
-		fmt.Println(color.YellowString(fmt.Sprintf("Marija server stopped.")))
+		fmt.Println(color.YellowString("Marija server stopped"))
 	}()
 
-	if err := http.ListenAndServe(server.address, nil); err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+
+	go func() {
+		if err := http.ListenAndServe(server.address, nil); err != nil {
+			log.Fatal("ListenAndServe: ", err)
+		}
+	}()
+
+	for {
+		select {
+		case <-signals:
+			fmt.Println(color.YellowString("Marija server stopping..."))
+			return
+		}
 	}
+
 }
 
 func New(options ...func(*Server)) *Server {
