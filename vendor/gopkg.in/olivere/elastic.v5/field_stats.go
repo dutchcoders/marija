@@ -5,14 +5,13 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 const (
@@ -168,7 +167,12 @@ func (s *FieldStatsService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *FieldStatsService) Do(ctx context.Context) (*FieldStatsResponse, error) {
+func (s *FieldStatsService) Do() (*FieldStatsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *FieldStatsService) DoC(ctx context.Context) (*FieldStatsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -189,7 +193,7 @@ func (s *FieldStatsService) Do(ctx context.Context) (*FieldStatsResponse, error)
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body, http.StatusNotFound)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body, http.StatusNotFound)
 	if err != nil {
 		return nil, err
 	}

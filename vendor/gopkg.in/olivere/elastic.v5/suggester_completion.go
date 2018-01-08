@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -76,7 +76,7 @@ type completionSuggesterRequest struct {
 	Completion interface{} `json:"completion"`
 }
 
-// Creates the source for the completion suggester.
+// Source creates the JSON structure for the completion suggester.
 func (q *CompletionSuggester) Source(includeName bool) (interface{}, error) {
 	cs := &completionSuggesterRequest{}
 

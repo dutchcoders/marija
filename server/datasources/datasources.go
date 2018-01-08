@@ -24,3 +24,8 @@ func Get(name string) (DatasourceFn, error) {
 
 	return nil, ErrNotFound
 }
+
+type SearchResponse interface {
+	Item() chan Item
+	Error() chan error
+}

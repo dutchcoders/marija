@@ -6,10 +6,10 @@ package elastic
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -17,16 +17,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"golang.org/x/net/context"
-	"golang.org/x/net/context/ctxhttp"
 )
 
 const (
 	// Version is the current version of Elastic.
-	Version = "5.0.4"
+	Version = "3.0.71"
 
-	// DefaultUrl is the default endpoint of Elasticsearch on the local machine.
+	// DefaultURL is the default endpoint of Elasticsearch on the local machine.
 	// It is used e.g. when initializing a new Client without a specific URL.
 	DefaultURL = "http://127.0.0.1:9200"
 
@@ -70,11 +67,6 @@ const (
 	// process, DefaultSnifferTimeoutStartup is used.
 	DefaultSnifferTimeout = 2 * time.Second
 
-	// DefaultMaxRetries is the number of retries for a single request after
-	// Elastic will give up and return an error. It is zero by default, so
-	// retry is disabled by default.
-	DefaultMaxRetries = 0
-
 	// DefaultSendGetBodyAs is the HTTP method to use when elastic is sending
 	// a GET request with a body.
 	DefaultSendGetBodyAs = "GET"
@@ -97,6 +89,9 @@ var (
 	// ErrTimeout is raised when a request timed out, e.g. when WaitForStatus
 	// didn't return in time.
 	ErrTimeout = errors.New("timeout")
+
+	// noRetries is a retrier that does not retry.
+	noRetries = NewStopRetrier()
 )
 
 // ClientOptionFunc is a function that configures a Client.
@@ -111,31 +106,32 @@ type Client struct {
 	conns   []*conn      // all connections
 	cindex  int          // index into conns
 
-	mu                        sync.RWMutex  // guards the next block
-	urls                      []string      // set of URLs passed initially to the client
-	running                   bool          // true if the client's background processes are running
-	errorlog                  Logger        // error log for critical messages
-	infolog                   Logger        // information log for e.g. response times
-	tracelog                  Logger        // trace log for debugging
-	maxRetries                int           // max. number of retries
-	scheme                    string        // http or https
-	healthcheckEnabled        bool          // healthchecks enabled or disabled
-	healthcheckTimeoutStartup time.Duration // time the healthcheck waits for a response from Elasticsearch on startup
-	healthcheckTimeout        time.Duration // time the healthcheck waits for a response from Elasticsearch
-	healthcheckInterval       time.Duration // interval between healthchecks
-	healthcheckStop           chan bool     // notify healthchecker to stop, and notify back
-	snifferEnabled            bool          // sniffer enabled or disabled
-	snifferTimeoutStartup     time.Duration // time the sniffer waits for a response from nodes info API on startup
-	snifferTimeout            time.Duration // time the sniffer waits for a response from nodes info API
-	snifferInterval           time.Duration // interval between sniffing
-	snifferStop               chan bool     // notify sniffer to stop, and notify back
-	decoder                   Decoder       // used to decode data sent from Elasticsearch
-	basicAuth                 bool          // indicates whether to send HTTP Basic Auth credentials
-	basicAuthUsername         string        // username for HTTP Basic Auth
-	basicAuthPassword         string        // password for HTTP Basic Auth
-	sendGetBodyAs             string        // override for when sending a GET with a body
-	requiredPlugins           []string      // list of required plugins
-	gzipEnabled               bool          // gzip compression enabled or disabled (default)
+	mu                        sync.RWMutex    // guards the next block
+	urls                      []string        // set of URLs passed initially to the client
+	running                   bool            // true if the client's background processes are running
+	errorlog                  Logger          // error log for critical messages
+	infolog                   Logger          // information log for e.g. response times
+	tracelog                  Logger          // trace log for debugging
+	scheme                    string          // http or https
+	healthcheckEnabled        bool            // healthchecks enabled or disabled
+	healthcheckTimeoutStartup time.Duration   // time the healthcheck waits for a response from Elasticsearch on startup
+	healthcheckTimeout        time.Duration   // time the healthcheck waits for a response from Elasticsearch
+	healthcheckInterval       time.Duration   // interval between healthchecks
+	healthcheckStop           chan bool       // notify healthchecker to stop, and notify back
+	snifferEnabled            bool            // sniffer enabled or disabled
+	snifferTimeoutStartup     time.Duration   // time the sniffer waits for a response from nodes info API on startup
+	snifferTimeout            time.Duration   // time the sniffer waits for a response from nodes info API
+	snifferInterval           time.Duration   // interval between sniffing
+	snifferCallback           SnifferCallback // callback to modify the sniffing decision
+	snifferStop               chan bool       // notify sniffer to stop, and notify back
+	decoder                   Decoder         // used to decode data sent from Elasticsearch
+	basicAuth                 bool            // indicates whether to send HTTP Basic Auth credentials
+	basicAuthUsername         string          // username for HTTP Basic Auth
+	basicAuthPassword         string          // password for HTTP Basic Auth
+	sendGetBodyAs             string          // override for when sending a GET with a body
+	requiredPlugins           []string        // list of required plugins
+	gzipEnabled               bool            // gzip compression enabled or disabled (default)
+	retrier                   Retrier         // strategy for retries
 }
 
 // NewClient creates a new client to work with Elasticsearch.
@@ -151,7 +147,6 @@ type Client struct {
 //
 //   client, err := elastic.NewClient(
 //     elastic.SetURL("http://127.0.0.1:9200", "http://127.0.0.1:9201"),
-//     elastic.SetMaxRetries(10),
 //     elastic.SetBasicAuth("user", "secret"))
 //
 // If no URL is configured, Elastic uses DefaultURL by default.
@@ -177,7 +172,10 @@ type Client struct {
 //
 // Connections are automatically marked as dead or healthy while
 // making requests to Elasticsearch. When a request fails, Elastic will
-// retry up to a maximum number of retries configured with SetMaxRetries.
+// call into the Retry strategy which can be specified with SetRetry.
+// The Retry strategy is also responsible for handling backoff i.e. the time
+// to wait before starting the next request. There are various standard
+// backoff implementations, e.g. ExponentialBackoff or SimpleBackoff.
 // Retries are disabled by default.
 //
 // If no HttpClient is configured, then http.DefaultClient is used.
@@ -194,7 +192,6 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 		cindex:                    -1,
 		scheme:                    DefaultScheme,
 		decoder:                   &DefaultDecoder{},
-		maxRetries:                DefaultMaxRetries,
 		healthcheckEnabled:        DefaultHealthcheckEnabled,
 		healthcheckTimeoutStartup: DefaultHealthcheckTimeoutStartup,
 		healthcheckTimeout:        DefaultHealthcheckTimeout,
@@ -204,9 +201,11 @@ func NewClient(options ...ClientOptionFunc) (*Client, error) {
 		snifferTimeoutStartup:     DefaultSnifferTimeoutStartup,
 		snifferTimeout:            DefaultSnifferTimeout,
 		snifferInterval:           DefaultSnifferInterval,
+		snifferCallback:           nopSnifferCallback,
 		snifferStop:               make(chan bool),
 		sendGetBodyAs:             DefaultSendGetBodyAs,
 		gzipEnabled:               DefaultGzipEnabled,
+		retrier:                   noRetries, // no retries by default
 	}
 
 	// Run the options on it
@@ -296,7 +295,6 @@ func NewSimpleClient(options ...ClientOptionFunc) (*Client, error) {
 		cindex:                    -1,
 		scheme:                    DefaultScheme,
 		decoder:                   &DefaultDecoder{},
-		maxRetries:                1,
 		healthcheckEnabled:        false,
 		healthcheckTimeoutStartup: off,
 		healthcheckTimeout:        off,
@@ -306,9 +304,11 @@ func NewSimpleClient(options ...ClientOptionFunc) (*Client, error) {
 		snifferTimeoutStartup:     off,
 		snifferTimeout:            off,
 		snifferInterval:           off,
+		snifferCallback:           nopSnifferCallback,
 		snifferStop:               make(chan bool),
 		sendGetBodyAs:             DefaultSendGetBodyAs,
 		gzipEnabled:               DefaultGzipEnabled,
+		retrier:                   noRetries, // no retries by default
 	}
 
 	// Run the options on it
@@ -437,6 +437,27 @@ func SetSnifferInterval(interval time.Duration) ClientOptionFunc {
 	}
 }
 
+// SnifferCallback defines the protocol for sniffing decisions.
+type SnifferCallback func(*NodesInfoNode) bool
+
+// nopSnifferCallback is the default sniffer callback: It accepts
+// all nodes the sniffer finds.
+var nopSnifferCallback = func(*NodesInfoNode) bool { return true }
+
+// SetSnifferCallback allows the caller to modify sniffer decisions.
+// When setting the callback, the given SnifferCallback is called for
+// each (healthy) node found during the sniffing process.
+// If the callback returns false, the node is ignored: No requests
+// are routed to it.
+func SetSnifferCallback(f SnifferCallback) ClientOptionFunc {
+	return func(c *Client) error {
+		if f != nil {
+			c.snifferCallback = f
+		}
+		return nil
+	}
+}
+
 // SetHealthcheck enables or disables healthchecks (enabled by default).
 func SetHealthcheck(enabled bool) ClientOptionFunc {
 	return func(c *Client) error {
@@ -479,12 +500,24 @@ func SetHealthcheckInterval(interval time.Duration) ClientOptionFunc {
 
 // SetMaxRetries sets the maximum number of retries before giving up when
 // performing a HTTP request to Elasticsearch.
+//
+// Deprecated: Replace with a Retry implementation.
 func SetMaxRetries(maxRetries int) ClientOptionFunc {
 	return func(c *Client) error {
 		if maxRetries < 0 {
 			return errors.New("MaxRetries must be greater than or equal to 0")
+		} else if maxRetries == 0 {
+			c.retrier = noRetries
+		} else {
+			// Create a Retrier that will wait for 100ms (+/- jitter) between requests.
+			// This resembles the old behavior with maxRetries.
+			ticks := make([]int, maxRetries)
+			for i := 0; i < len(ticks); i++ {
+				ticks[i] = 100
+			}
+			backoff := NewSimpleBackoff(ticks...)
+			c.retrier = NewBackoffRetrier(backoff)
 		}
-		c.maxRetries = maxRetries
 		return nil
 	}
 }
@@ -549,11 +582,23 @@ func SetTraceLog(logger Logger) ClientOptionFunc {
 	}
 }
 
-// SetSendGetBodyAs specifies the HTTP method to use when sending a GET request
+// SendGetBodyAs specifies the HTTP method to use when sending a GET request
 // with a body. It is GET by default.
 func SetSendGetBodyAs(httpMethod string) ClientOptionFunc {
 	return func(c *Client) error {
 		c.sendGetBodyAs = httpMethod
+		return nil
+	}
+}
+
+// SetRetrier specifies the retry strategy that handles errors during
+// HTTP request/response with Elasticsearch.
+func SetRetrier(retrier Retrier) ClientOptionFunc {
+	return func(c *Client) error {
+		if retrier == nil {
+			retrier = noRetries // no retries by default
+		}
+		c.retrier = retrier
 		return nil
 	}
 }
@@ -715,8 +760,8 @@ func (c *Client) sniff(timeout time.Duration) error {
 	}
 
 	// Use all available URLs provided to sniff the cluster.
-	var urls []string
 	urlsMap := make(map[string]bool)
+	var urls []string
 
 	// Add all URLs provided on startup
 	for _, url := range c.urls {
@@ -743,8 +788,12 @@ func (c *Client) sniff(timeout time.Duration) error {
 
 	// Start sniffing on all found URLs
 	ch := make(chan []*conn, len(urls))
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	for _, url := range urls {
-		go func(url string) { ch <- c.sniffNode(url) }(url)
+		go func(url string) { ch <- c.sniffNode(ctx, url) }(url)
 	}
 
 	// Wait for the results to come back, or the process times out.
@@ -755,7 +804,7 @@ func (c *Client) sniff(timeout time.Duration) error {
 				c.updateConns(conns)
 				return nil
 			}
-		case <-time.After(timeout):
+		case <-ctx.Done():
 			// We get here if no cluster responds in time
 			return ErrNoClient
 		}
@@ -766,7 +815,7 @@ func (c *Client) sniff(timeout time.Duration) error {
 // in sniff. If successful, it returns the list of node URLs extracted
 // from the result of calling Nodes Info API. Otherwise, an empty array
 // is returned.
-func (c *Client) sniffNode(url string) []*conn {
+func (c *Client) sniffNode(ctx context.Context, url string) []*conn {
 	var nodes []*conn
 
 	// Call the Nodes Info API at /_nodes/http
@@ -781,7 +830,7 @@ func (c *Client) sniffNode(url string) []*conn {
 	}
 	c.mu.RUnlock()
 
-	res, err := c.c.Do((*http.Request)(req))
+	res, err := c.c.Do((*http.Request)(req).WithContext(ctx))
 	if err != nil {
 		return nodes
 	}
@@ -797,10 +846,12 @@ func (c *Client) sniffNode(url string) []*conn {
 	if err := json.NewDecoder(res.Body).Decode(&info); err == nil {
 		if len(info.Nodes) > 0 {
 			for nodeID, node := range info.Nodes {
-				if node.HTTP != nil && len(node.HTTP.PublishAddress) > 0 {
-					url := c.extractHostname(c.scheme, node.HTTP.PublishAddress)
-					if url != "" {
-						nodes = append(nodes, newConn(nodeID, url))
+				if c.snifferCallback(node) {
+					if node.HTTP != nil && len(node.HTTP.PublishAddress) > 0 {
+						url := c.extractHostname(c.scheme, node.HTTP.PublishAddress)
+						if url != "" {
+							nodes = append(nodes, newConn(nodeID, url))
+						}
 					}
 				}
 			}
@@ -835,10 +886,11 @@ func (c *Client) extractHostname(scheme, address string) string {
 func (c *Client) updateConns(conns []*conn) {
 	c.connsMu.Lock()
 
+	var newConns []*conn
+
 	// Build up new connections:
 	// If we find an existing connection, use that (including no. of failures etc.).
 	// If we find a new connection, add it.
-	var newConns []*conn
 	for _, conn := range conns {
 		var found bool
 		for _, oldConn := range c.conns {
@@ -919,7 +971,7 @@ func (c *Client) healthcheck(timeout time.Duration, force bool) {
 			if basicAuth {
 				req.SetBasicAuth(basicAuthUsername, basicAuthPassword)
 			}
-			res, err := c.c.Do((*http.Request)(req))
+			res, err := c.c.Do((*http.Request)(req).WithContext(ctx))
 			if res != nil {
 				status = res.StatusCode
 				if res.Body != nil {
@@ -1045,17 +1097,26 @@ func (c *Client) mustActiveConn() error {
 }
 
 // PerformRequest does a HTTP request to Elasticsearch.
+// It returns a response (which might be nil) and an error on failure.
+//
+// Optionally, a list of HTTP error codes to ignore can be passed.
+// This is necessary for services that expect e.g. HTTP status 404 as a
+// valid outcome (Exists, IndicesExists, IndicesTypeExists).
+func (c *Client) PerformRequest(method, path string, params url.Values, body interface{}, ignoreErrors ...int) (*Response, error) {
+	return c.PerformRequestC(nil, method, path, params, body, ignoreErrors...)
+}
+
+// PerformRequestC does a HTTP request to Elasticsearch.
 // It returns a response and an error on failure.
 //
 // Optionally, a list of HTTP error codes to ignore can be passed.
 // This is necessary for services that expect e.g. HTTP status 404 as a
 // valid outcome (Exists, IndicesExists, IndicesTypeExists).
-func (c *Client) PerformRequest(ctx context.Context, method, path string, params url.Values, body interface{}, ignoreErrors ...int) (*Response, error) {
+func (c *Client) PerformRequestC(ctx context.Context, method, path string, params url.Values, body interface{}, ignoreErrors ...int) (*Response, error) {
 	start := time.Now().UTC()
 
 	c.mu.RLock()
 	timeout := c.healthcheckTimeout
-	retries := c.maxRetries
 	basicAuth := c.basicAuth
 	basicAuthUsername := c.basicAuthUsername
 	basicAuthPassword := c.basicAuthPassword
@@ -1068,10 +1129,7 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 	var req *Request
 	var resp *Response
 	var retried bool
-
-	// We wait between retries, using simple exponential back-off.
-	// TODO: Make this configurable, including the jitter.
-	retryWaitMsec := int64(100 + (rand.Intn(20) - 10))
+	var n int
 
 	// Change method if sendGetBodyAs is specified.
 	if method == "GET" && body != nil && sendGetBodyAs != "GET" {
@@ -1087,17 +1145,20 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 		// Get a connection
 		conn, err = c.next()
 		if err == ErrNoClient {
+			n++
 			if !retried {
 				// Force a healtcheck as all connections seem to be dead.
 				c.healthcheck(timeout, false)
 			}
-			retries--
-			if retries <= 0 {
+			wait, ok, rerr := c.retrier.Retry(ctx, n, nil, nil, err)
+			if rerr != nil {
+				return nil, rerr
+			}
+			if !ok {
 				return nil, err
 			}
 			retried = true
-			time.Sleep(time.Duration(retryWaitMsec) * time.Millisecond)
-			retryWaitMsec += retryWaitMsec
+			time.Sleep(wait)
 			continue // try again
 		}
 		if err != nil {
@@ -1128,17 +1189,29 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 		c.dumpRequest((*http.Request)(req))
 
 		// Get response
-		res, err := ctxhttp.Do(ctx, c.c, (*http.Request)(req))
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		res, err := c.c.Do((*http.Request)(req).WithContext(ctx))
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			// Proceed, but don't mark the node as dead
+			return nil, err
+		}
 		if err != nil {
-			retries--
-			if retries <= 0 {
+			n++
+			wait, ok, rerr := c.retrier.Retry(ctx, n, (*http.Request)(req), res, err)
+			if rerr != nil {
+				c.errorf("elastic: %s is dead", conn.URL())
+				conn.MarkAsDead()
+				return nil, rerr
+			}
+			if !ok {
 				c.errorf("elastic: %s is dead", conn.URL())
 				conn.MarkAsDead()
 				return nil, err
 			}
 			retried = true
-			time.Sleep(time.Duration(retryWaitMsec) * time.Millisecond)
-			retryWaitMsec += retryWaitMsec
+			time.Sleep(wait)
 			continue // try again
 		}
 		if res.Body != nil {
@@ -1148,7 +1221,9 @@ func (c *Client) PerformRequest(ctx context.Context, method, path string, params
 		// Check for errors
 		if err := checkResponse((*http.Request)(req), res, ignoreErrors...); err != nil {
 			// No retry if request succeeded
-			return nil, err
+			// We still try to return a response.
+			resp, _ = c.newResponse(res)
+			return resp, err
 		}
 
 		// Tracing
@@ -1227,11 +1302,28 @@ func (c *Client) BulkProcessor() *BulkProcessorService {
 	return NewBulkProcessorService(c)
 }
 
-// Reindex copies data from a source index into a destination index.
+// Reindex returns a service that will reindex documents from a source
+// index into a target index.
+//
+// Notice that this Reindexer is an Elastic-specific solution that pre-dated
+// the Reindex API introduced in Elasticsearch 2.3.0 (see ReindexTask).
+//
+// See http://www.elastic.co/guide/en/elasticsearch/guide/current/reindex.html
+// for more information about reindexing.
+func (c *Client) Reindex(sourceIndex, targetIndex string) *Reindexer {
+	return NewReindexer(c, sourceIndex, CopyToTargetIndex(targetIndex))
+}
+
+// ReindexTask copies data from a source index into a destination index.
+//
+// The Reindex API has been introduced in Elasticsearch 2.3.0. Notice that
+// there is a Elastic-specific Reindexer that pre-dates the Reindex API from
+// Elasticsearch. If you rely on that, use the ReindexerService via
+// Client.Reindex.
 //
 // See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html
 // for details on the Reindex API.
-func (c *Client) Reindex() *ReindexService {
+func (c *Client) ReindexTask() *ReindexService {
 	return NewReindexService(c)
 }
 
@@ -1276,6 +1368,12 @@ func (c *Client) Explain(index, typ, id string) *ExplainService {
 	return NewExplainService(c).Index(index).Type(typ).Id(id)
 }
 
+// Percolate allows to send a document and return matching queries.
+// See http://www.elastic.co/guide/en/elasticsearch/reference/current/search-percolate.html.
+func (c *Client) Percolate() *PercolateService {
+	return NewPercolateService(c)
+}
+
 // TODO Search Template
 // TODO Search Shards API
 // TODO Search Exists API
@@ -1291,8 +1389,15 @@ func (c *Client) Exists() *ExistsService {
 	return NewExistsService(c)
 }
 
+// Scan through documents. Use this to iterate inside a server process
+// where the results will be processed without returning them to a client.
+func (c *Client) Scan(indices ...string) *ScanService {
+	return NewScanService(c).Index(indices...)
+}
+
 // Scroll through documents. Use this to efficiently scroll through results
-// while returning the results to a client.
+// while returning the results to a client. Use Scan when you don't need
+// to return requests to a client (i.e. not paginating via request/response).
 func (c *Client) Scroll(indices ...string) *ScrollService {
 	return NewScrollService(c).Index(indices...)
 }
@@ -1317,17 +1422,6 @@ func (c *Client) DeleteIndex(indices ...string) *IndicesDeleteService {
 // IndexExists allows to check if an index exists.
 func (c *Client) IndexExists(indices ...string) *IndicesExistsService {
 	return NewIndicesExistsService(c).Index(indices)
-}
-
-// ShrinkIndex returns a service to shrink one index into another.
-func (c *Client) ShrinkIndex(source, target string) *IndicesShrinkService {
-	return NewIndicesShrinkService(c).Source(source).Target(target)
-}
-
-// RolloverIndex rolls an alias over to a new index when the existing index
-// is considered to be too large or too old.
-func (c *Client) RolloverIndex(alias string) *IndicesRolloverService {
-	return NewIndicesRolloverService(c).Alias(alias)
 }
 
 // TypeExists allows to check if one or more types exist in one or more indices.
@@ -1365,6 +1459,18 @@ func (c *Client) IndexGetSettings(indices ...string) *IndicesGetSettingsService 
 // IndexPutSettings sets settings for all, one or more indices.
 func (c *Client) IndexPutSettings(indices ...string) *IndicesPutSettingsService {
 	return NewIndicesPutSettingsService(c).Index(indices...)
+}
+
+// IndexAnalyze performs the analysis process on a text and returns the
+// token breakdown of the text.
+func (c *Client) IndexAnalyze() *IndicesAnalyzeService {
+	return NewIndicesAnalyzeService(c)
+}
+
+// Optimize asks Elasticsearch to optimize one or more indices.
+// Optimize is deprecated as of Elasticsearch 2.1 and replaced by Forcemerge.
+func (c *Client) Optimize(indices ...string) *OptimizeService {
+	return NewOptimizeService(c).Index(indices...)
 }
 
 // Forcemerge optimizes one or more indices.
@@ -1446,6 +1552,21 @@ func (c *Client) PutMapping() *IndicesPutMappingService {
 	return NewIndicesPutMappingService(c)
 }
 
+// GetWarmer gets one or more warmers by name.
+func (c *Client) GetWarmer() *IndicesGetWarmerService {
+	return NewIndicesGetWarmerService(c)
+}
+
+// PutWarmer registers a warmer.
+func (c *Client) PutWarmer() *IndicesPutWarmerService {
+	return NewIndicesPutWarmerService(c)
+}
+
+// DeleteWarmer deletes one or more warmers.
+func (c *Client) DeleteWarmer() *IndicesDeleteWarmerService {
+	return NewIndicesDeleteWarmerService(c)
+}
+
 // -- cat APIs --
 
 // TODO cat aliases
@@ -1462,30 +1583,6 @@ func (c *Client) PutMapping() *IndicesPutMappingService {
 // TODO cat thread pool
 // TODO cat shards
 // TODO cat segments
-
-// -- Ingest APIs --
-
-// IngestPutPipeline adds pipelines and updates existing pipelines in
-// the cluster.
-func (c *Client) IngestPutPipeline(id string) *IngestPutPipelineService {
-	return NewIngestPutPipelineService(c).Id(id)
-}
-
-// IngestGetPipeline returns pipelines based on ID.
-func (c *Client) IngestGetPipeline(ids ...string) *IngestGetPipelineService {
-	return NewIngestGetPipelineService(c).Id(ids...)
-}
-
-// IngestDeletePipeline deletes a pipeline by ID.
-func (c *Client) IngestDeletePipeline(id string) *IngestDeletePipelineService {
-	return NewIngestDeletePipelineService(c).Id(id)
-}
-
-// IngestSimulatePipeline executes a specific pipeline against the set of
-// documents provided in the body of the request.
-func (c *Client) IngestSimulatePipeline() *IngestSimulatePipelineService {
-	return NewIngestSimulatePipelineService(c)
-}
 
 // -- Cluster APIs --
 
@@ -1547,7 +1644,7 @@ func (c *Client) TasksList() *TasksListService {
 // ElasticsearchVersion returns the version number of Elasticsearch
 // running on the given URL.
 func (c *Client) ElasticsearchVersion(url string) (string, error) {
-	res, _, err := c.Ping(url).Do(context.Background())
+	res, _, err := c.Ping(url).Do()
 	if err != nil {
 		return "", err
 	}
@@ -1556,7 +1653,7 @@ func (c *Client) ElasticsearchVersion(url string) (string, error) {
 
 // IndexNames returns the names of all indices in the cluster.
 func (c *Client) IndexNames() ([]string, error) {
-	res, err := c.IndexGetSettings().Index("_all").Do(context.Background())
+	res, err := c.IndexGetSettings().Index("_all").Do()
 	if err != nil {
 		return nil, err
 	}
@@ -1583,7 +1680,7 @@ func (c *Client) Ping(url string) *PingService {
 // If the cluster will have the given state within the timeout, nil is returned.
 // If the request timed out, ErrTimeout is returned.
 func (c *Client) WaitForStatus(status string, timeout string) error {
-	health, err := c.ClusterHealth().WaitForStatus(status).Timeout(timeout).Do(context.Background())
+	health, err := c.ClusterHealth().WaitForStatus(status).Timeout(timeout).Do()
 	if err != nil {
 		return err
 	}

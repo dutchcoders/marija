@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2016 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,6 +10,9 @@ package elastic
 // that share a common value such as an "author".
 // See: https://www.elastic.co/guide/en/elasticsearch/reference/2.x/search-aggregations-bucket-sampler-aggregation.html
 type SamplerAggregation struct {
+	field           string
+	script          *Script
+	missing         interface{}
 	subAggregations map[string]Aggregation
 	meta            map[string]interface{}
 
@@ -24,6 +27,22 @@ func NewSamplerAggregation() *SamplerAggregation {
 		maxDocsPerValue: -1,
 		subAggregations: make(map[string]Aggregation),
 	}
+}
+
+func (a *SamplerAggregation) Field(field string) *SamplerAggregation {
+	a.field = field
+	return a
+}
+
+func (a *SamplerAggregation) Script(script *Script) *SamplerAggregation {
+	a.script = script
+	return a
+}
+
+// Missing configures the value to use when documents miss a value.
+func (a *SamplerAggregation) Missing(missing interface{}) *SamplerAggregation {
+	a.missing = missing
+	return a
 }
 
 func (a *SamplerAggregation) SubAggregation(name string, subAggregation Aggregation) *SamplerAggregation {
@@ -59,6 +78,7 @@ func (a *SamplerAggregation) Source() (interface{}, error) {
 	//     "aggs" : {
 	//         "sample" : {
 	//             "sampler" : {
+	//                 "field" : "user.id",
 	//                 "shard_size" : 200
 	//             },
 	// 						 "aggs": {
@@ -77,6 +97,21 @@ func (a *SamplerAggregation) Source() (interface{}, error) {
 	source := make(map[string]interface{})
 	opts := make(map[string]interface{})
 	source["sampler"] = opts
+
+	// ValuesSourceAggregationBuilder
+	if a.field != "" {
+		opts["field"] = a.field
+	}
+	if a.script != nil {
+		src, err := a.script.Source()
+		if err != nil {
+			return nil, err
+		}
+		opts["script"] = src
+	}
+	if a.missing != nil {
+		opts["missing"] = a.missing
+	}
 
 	if a.shardSize >= 0 {
 		opts["shard_size"] = a.shardSize

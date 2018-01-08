@@ -1,14 +1,13 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
-
-	"golang.org/x/net/context"
 )
 
 // MgetService allows to get multiple documents based on an index,
@@ -23,7 +22,7 @@ type MgetService struct {
 	pretty     bool
 	preference string
 	realtime   *bool
-	refresh    string
+	refresh    *bool
 	items      []*MultiGetItem
 }
 
@@ -40,8 +39,8 @@ func (b *MgetService) Preference(preference string) *MgetService {
 	return b
 }
 
-func (b *MgetService) Refresh(refresh string) *MgetService {
-	b.refresh = refresh
+func (b *MgetService) Refresh(refresh bool) *MgetService {
+	b.refresh = &refresh
 	return b
 }
 
@@ -75,7 +74,11 @@ func (b *MgetService) Source() (interface{}, error) {
 	return source, nil
 }
 
-func (b *MgetService) Do(ctx context.Context) (*MgetResponse, error) {
+func (b *MgetService) Do() (*MgetResponse, error) {
+	return b.DoC(nil)
+}
+
+func (b *MgetService) DoC(ctx context.Context) (*MgetResponse, error) {
 	// Build url
 	path := "/_mget"
 
@@ -86,8 +89,8 @@ func (b *MgetService) Do(ctx context.Context) (*MgetResponse, error) {
 	if b.preference != "" {
 		params.Add("preference", b.preference)
 	}
-	if b.refresh != "" {
-		params.Add("refresh", b.refresh)
+	if b.refresh != nil {
+		params.Add("refresh", fmt.Sprintf("%v", *b.refresh))
 	}
 
 	// Set body
@@ -97,7 +100,7 @@ func (b *MgetService) Do(ctx context.Context) (*MgetResponse, error) {
 	}
 
 	// Get response
-	res, err := b.client.PerformRequest(ctx, "GET", path, params, body)
+	res, err := b.client.PerformRequestC(ctx, "GET", path, params, body)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,93 @@
+input[placeholder] {
+    opacity: 1;
+}
+
+nav#searchbox .form-group {
+    margin-bottom: 0px;
+}
+
+nav#searchbox .form-control {
+    color: $input-color;
+    box-sizing: border-box;
+    height: 42px;
+    background-color: $input-background-color;
+    border-radius: 0px;
+    box-shadow: none;
+    outline: none;
+    border-color: $input-border-color;
+
+    &:focus {
+        color: $input-color-focus;
+        outline: none;
+        box-shadow: none;
+        border-color: $input-border-color-focus;
+    }
+}
+
+.loader {
+	margin-top: 20px;
+}
+
+.sk-search-box__loader {
+    position: absolute;
+    top: 0px;
+    right: 15px;
+}
+
+.sk-spinning-loader {
+    border-top: 2px solid $spinner-color-faded;
+    border-right: 2px solid $spinner-color-faded;
+    border-bottom: 2px solid $spinner-color-faded;
+    border-left: 2px solid $spinner-color;
+}
+
+i.status {
+    font-size: 30px;
+    margin-top: 7px;
+}
+
+i.settings {
+    font-size: 30px;
+    margin-top: 7px;
+    margin-left: 20px;
+    float: left;
+    cursor:pointer;
+
+    color: $input-color-focus;
+}
+
+.search-container{
+    max-width: calc(100% - 100px);
+    width: 600px;
+    float:left;
+    margin: -15px 0px;
+    height: 72px;
+    box-sizing: border-box;
+
+    .form-group{
+        input{
+            font-size: 18px;
+            margin: 15px 0px;
+            padding-left: 50px;
+            margin-left: 25px;
+        }
+    }
+}
+
+nav#searchbox {
+    ::-webkit-input-placeholder {
+        color: #fff !important
+    }
+
+    :-moz-placeholder { /* Firefox 18- */
+        color: #fff !important;
+    }
+
+    ::-moz-placeholder {  /* Firefox 19+ */
+        color: #fff !important;   
+    }
+
+    :-ms-input-placeholder {  
+        color: #fff !important; 
+    }
+}

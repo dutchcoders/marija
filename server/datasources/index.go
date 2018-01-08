@@ -1,6 +1,8 @@
 package datasources
 
+import "context"
+
 type Index interface {
-	Search(SearchOptions) ([]Item, int, error)
+	Search(context.Context, SearchOptions) SearchResponse
 	Fields() ([]Field, error)
 }

@@ -47,10 +47,6 @@ var globalFlags = []cli.Flag{
 		Usage: "config file",
 		Value: "config.toml",
 	},
-	cli.BoolFlag{
-		Name:  "help, h",
-		Usage: "Show help.",
-	},
 }
 
 type Cmd struct {

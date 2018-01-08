@@ -10,9 +10,9 @@ import (
 	"strings"
 )
 
-// BulkUpdateRequest is a request to update a document in Elasticsearch.
+// Bulk request to update a document in Elasticsearch.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-bulk.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 // for details.
 type BulkUpdateRequest struct {
 	BulkableRequest
@@ -26,9 +26,13 @@ type BulkUpdateRequest struct {
 	version         int64  // default is MATCH_ANY
 	versionType     string // default is "internal"
 	retryOnConflict *int
+	refresh         *bool
 	upsert          interface{}
 	docAsUpsert     *bool
+	detectNoop      *bool
 	doc             interface{}
+	ttl             int64
+	timestamp       string
 
 	source []string
 }
@@ -108,6 +112,15 @@ func (r *BulkUpdateRequest) VersionType(versionType string) *BulkUpdateRequest {
 	return r
 }
 
+// Refresh indicates whether to update the shards immediately after
+// the request has been processed. Updated documents will appear
+// in search immediately at the cost of slower bulk performance.
+func (r *BulkUpdateRequest) Refresh(refresh bool) *BulkUpdateRequest {
+	r.refresh = &refresh
+	r.source = nil
+	return r
+}
+
 // Doc specifies the updated document.
 func (r *BulkUpdateRequest) Doc(doc interface{}) *BulkUpdateRequest {
 	r.doc = doc
@@ -126,10 +139,35 @@ func (r *BulkUpdateRequest) DocAsUpsert(docAsUpsert bool) *BulkUpdateRequest {
 	return r
 }
 
+// DetectNoop specifies whether changes that don't affect the document
+// should be ignored (true) or unignored (false). This is enabled by default
+// in Elasticsearch.
+func (r *BulkUpdateRequest) DetectNoop(detectNoop bool) *BulkUpdateRequest {
+	r.detectNoop = &detectNoop
+	r.source = nil
+	return r
+}
+
 // Upsert specifies the document to use for upserts. It will be used for
 // create if the original document does not exist.
 func (r *BulkUpdateRequest) Upsert(doc interface{}) *BulkUpdateRequest {
 	r.upsert = doc
+	r.source = nil
+	return r
+}
+
+// Ttl specifies the time to live, and optional expiry time.
+// This is deprecated as of 2.0.0-beta2.
+func (r *BulkUpdateRequest) Ttl(ttl int64) *BulkUpdateRequest {
+	r.ttl = ttl
+	r.source = nil
+	return r
+}
+
+// Timestamp specifies a timestamp for the document.
+// This is deprecated as of 2.0.0-beta2.
+func (r *BulkUpdateRequest) Timestamp(timestamp string) *BulkUpdateRequest {
+	r.timestamp = timestamp
 	r.source = nil
 	return r
 }
@@ -167,7 +205,7 @@ func (r *BulkUpdateRequest) getSourceAsString(data interface{}) (string, error) 
 // split into an action-and-meta-data line and an (optional) source line.
 // See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 // for details.
-func (r BulkUpdateRequest) Source() ([]string, error) {
+func (r *BulkUpdateRequest) Source() ([]string, error) {
 	// { "update" : { "_index" : "test", "_type" : "type1", "_id" : "1", ... } }
 	// { "doc" : { "field1" : "value1", ... } }
 	// or
@@ -198,11 +236,20 @@ func (r BulkUpdateRequest) Source() ([]string, error) {
 	if r.parent != "" {
 		updateCommand["_parent"] = r.parent
 	}
+	if r.timestamp != "" {
+		updateCommand["_timestamp"] = r.timestamp
+	}
+	if r.ttl > 0 {
+		updateCommand["_ttl"] = r.ttl
+	}
 	if r.version > 0 {
 		updateCommand["_version"] = r.version
 	}
 	if r.versionType != "" {
 		updateCommand["_version_type"] = r.versionType
+	}
+	if r.refresh != nil {
+		updateCommand["refresh"] = *r.refresh
 	}
 	if r.retryOnConflict != nil {
 		updateCommand["_retry_on_conflict"] = *r.retryOnConflict
@@ -218,6 +265,9 @@ func (r BulkUpdateRequest) Source() ([]string, error) {
 	source := make(map[string]interface{})
 	if r.docAsUpsert != nil {
 		source["doc_as_upsert"] = *r.docAsUpsert
+	}
+	if r.detectNoop != nil {
+		source["detect_noop"] = *r.detectNoop
 	}
 	if r.upsert != nil {
 		source["upsert"] = r.upsert

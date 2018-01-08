@@ -1,17 +1,16 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // IndicesGetService retrieves information about one or more indices.
@@ -168,7 +167,12 @@ func (s *IndicesGetService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesGetService) Do(ctx context.Context) (map[string]*IndicesGetResponse, error) {
+func (s *IndicesGetService) Do() (map[string]*IndicesGetResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesGetService) DoC(ctx context.Context) (map[string]*IndicesGetResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -181,7 +185,7 @@ func (s *IndicesGetService) Do(ctx context.Context) (map[string]*IndicesGetRespo
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

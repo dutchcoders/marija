@@ -1,17 +1,16 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // Flush allows to flush one or more indices. The flush process of an index
@@ -137,7 +136,12 @@ func (s *IndicesFlushService) Validate() error {
 }
 
 // Do executes the service.
-func (s *IndicesFlushService) Do(ctx context.Context) (*IndicesFlushResponse, error) {
+func (s *IndicesFlushService) Do() (*IndicesFlushResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the service.
+func (s *IndicesFlushService) DoC(ctx context.Context) (*IndicesFlushResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -150,7 +154,7 @@ func (s *IndicesFlushService) Do(ctx context.Context) (*IndicesFlushResponse, er
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -66,18 +66,18 @@ func (hit *InnerHit) Version(version bool) *InnerHit {
 	return hit
 }
 
-func (hit *InnerHit) StoredField(storedFieldName string) *InnerHit {
-	hit.source.StoredField(storedFieldName)
+func (hit *InnerHit) Field(fieldName string) *InnerHit {
+	hit.source.Field(fieldName)
 	return hit
 }
 
-func (hit *InnerHit) StoredFields(storedFieldNames ...string) *InnerHit {
-	hit.source.StoredFields(storedFieldNames...)
+func (hit *InnerHit) Fields(fieldNames ...string) *InnerHit {
+	hit.source.Fields(fieldNames...)
 	return hit
 }
 
-func (hit *InnerHit) NoStoredFields() *InnerHit {
-	hit.source.NoStoredFields()
+func (hit *InnerHit) NoFields() *InnerHit {
+	hit.source.NoFields()
 	return hit
 }
 
@@ -91,13 +91,13 @@ func (hit *InnerHit) FetchSourceContext(fetchSourceContext *FetchSourceContext) 
 	return hit
 }
 
-func (hit *InnerHit) DocvalueFields(docvalueFields ...string) *InnerHit {
-	hit.source.DocvalueFields(docvalueFields...)
+func (hit *InnerHit) FieldDataFields(fieldDataFields ...string) *InnerHit {
+	hit.source.FieldDataFields(fieldDataFields...)
 	return hit
 }
 
-func (hit *InnerHit) DocvalueField(docvalueField string) *InnerHit {
-	hit.source.DocvalueField(docvalueField)
+func (hit *InnerHit) FieldDataField(fieldDataField string) *InnerHit {
+	hit.source.FieldDataField(fieldDataField)
 	return hit
 }
 

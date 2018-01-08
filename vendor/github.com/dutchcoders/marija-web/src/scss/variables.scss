@@ -1,0 +1,19 @@
+$base-font-color: #FCFCFC;
+
+$body-background-color: #3A4C5E;
+$header-background-color: #4C657F;
+$pane-background-color: #455B73;
+$pane-header-background-color: #5CA1E6;
+
+$green: #57c17b;
+$red: #ea4552;
+
+$input-border-color: #fff;
+$input-border-color-focus: $base-font-color;
+$input-background-color: rgba(0,0,0,0.1);
+
+$input-color: $input-border-color;
+$input-color-focus: $input-border-color-focus;
+
+$spinner-color: $input-border-color-focus;
+$spinner-color-faded: rgba(181, 181, 181, 0.2);

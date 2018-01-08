@@ -5,15 +5,14 @@
 package elastic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // Search for documents in Elasticsearch.
@@ -22,6 +21,7 @@ type SearchService struct {
 	searchSource      *SearchSource
 	source            interface{}
 	pretty            bool
+	filterPath        []string
 	searchType        string
 	index             []string
 	typ               []string
@@ -58,20 +58,22 @@ func (s *SearchService) Source(source interface{}) *SearchService {
 	return s
 }
 
+// FilterPath allows reducing the response, a mechanism known as
+// response filtering and described here:
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#common-options-response-filtering.
+func (s *SearchService) FilterPath(filterPath ...string) *SearchService {
+	s.filterPath = append(s.filterPath, filterPath...)
+	return s
+}
+
 // Index sets the names of the indices to use for search.
 func (s *SearchService) Index(index ...string) *SearchService {
-	if s.index == nil {
-		s.index = make([]string, 0)
-	}
 	s.index = append(s.index, index...)
 	return s
 }
 
 // Types adds search restrictions for a list of types.
 func (s *SearchService) Type(typ ...string) *SearchService {
-	if s.typ == nil {
-		s.typ = make([]string, 0)
-	}
 	s.typ = append(s.typ, typ...)
 	return s
 }
@@ -230,25 +232,25 @@ func (s *SearchService) SortBy(sorter ...Sorter) *SearchService {
 	return s
 }
 
-// NoStoredFields indicates that no stored fields should be loaded, resulting in only
+// NoFields indicates that no fields should be loaded, resulting in only
 // id and type to be returned per field.
-func (s *SearchService) NoStoredFields() *SearchService {
-	s.searchSource = s.searchSource.NoStoredFields()
+func (s *SearchService) NoFields() *SearchService {
+	s.searchSource = s.searchSource.NoFields()
 	return s
 }
 
-// StoredField adds a single field to load and return (note, must be stored) as
+// Field adds a single field to load and return (note, must be stored) as
 // part of the search request. If none are specified, the source of the
 // document will be returned.
-func (s *SearchService) StoredField(fieldName string) *SearchService {
-	s.searchSource = s.searchSource.StoredField(fieldName)
+func (s *SearchService) Field(fieldName string) *SearchService {
+	s.searchSource = s.searchSource.Field(fieldName)
 	return s
 }
 
-// StoredFields	sets the fields to load and return as part of the search request.
+// Fields	sets the fields to load and return as part of the search request.
 // If none are specified, the source of the document will be returned.
-func (s *SearchService) StoredFields(fields ...string) *SearchService {
-	s.searchSource = s.searchSource.StoredFields(fields...)
+func (s *SearchService) Fields(fields ...string) *SearchService {
+	s.searchSource = s.searchSource.Fields(fields...)
 	return s
 }
 
@@ -325,6 +327,9 @@ func (s *SearchService) buildURL() (string, url.Values, error) {
 	if s.ignoreUnavailable != nil {
 		params.Set("ignore_unavailable", fmt.Sprintf("%v", *s.ignoreUnavailable))
 	}
+	if len(s.filterPath) > 0 {
+		params.Set("filter_path", strings.Join(s.filterPath, ","))
+	}
 	return path, params, nil
 }
 
@@ -334,7 +339,12 @@ func (s *SearchService) Validate() error {
 }
 
 // Do executes the search and returns a SearchResult.
-func (s *SearchService) Do(ctx context.Context) (*SearchResult, error) {
+func (s *SearchService) Do() (*SearchResult, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the search and returns a SearchResult.
+func (s *SearchService) DoC(ctx context.Context) (*SearchResult, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -357,7 +367,7 @@ func (s *SearchService) Do(ctx context.Context) (*SearchResult, error) {
 		}
 		body = src
 	}
-	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -372,15 +382,17 @@ func (s *SearchService) Do(ctx context.Context) (*SearchResult, error) {
 
 // SearchResult is the result of a search in Elasticsearch.
 type SearchResult struct {
-	TookInMillis int64         `json:"took"`         // search time in milliseconds
-	ScrollId     string        `json:"_scroll_id"`   // only used with Scroll and Scan operations
-	Hits         *SearchHits   `json:"hits"`         // the actual search hits
-	Suggest      SearchSuggest `json:"suggest"`      // results from suggesters
-	Aggregations Aggregations  `json:"aggregations"` // results from aggregations
-	TimedOut     bool          `json:"timed_out"`    // true if the search timed out
+	TookInMillis    int64         `json:"took"`             // search time in milliseconds
+	ScrollId        string        `json:"_scroll_id"`       // only used with Scroll and Scan operations
+	Hits            *SearchHits   `json:"hits"`             // the actual search hits
+	Suggest         SearchSuggest `json:"suggest"`          // results from suggesters
+	Aggregations    Aggregations  `json:"aggregations"`     // results from aggregations
+	TimedOut        bool          `json:"timed_out"`        // true if the search timed out
+	TerminatedEarly bool          `json:"terminated_early"` // true if the operation has terminated before e.g. an expiration was reached
 	//Error        string        `json:"error,omitempty"` // used in MultiSearch only
 	// TODO double-check that MultiGet now returns details error information
-	Error *ErrorDetails `json:"error,omitempty"` // only used in MultiGet
+	Error  *ErrorDetails `json:"error,omitempty"`   // only used in MultiGet
+	Shards *shardsInfo   `json:"_shards,omitempty"` // shard information
 }
 
 // TotalHits is a convenience function to return the number of hits for
@@ -423,13 +435,15 @@ type SearchHit struct {
 	Type           string                         `json:"_type"`           // type meta field
 	Id             string                         `json:"_id"`             // external or internal
 	Uid            string                         `json:"_uid"`            // uid meta field (see MapperService.java for all meta fields)
+	Timestamp      int64                          `json:"_timestamp"`      // timestamp meta field
+	TTL            int64                          `json:"_ttl"`            // ttl meta field
 	Routing        string                         `json:"_routing"`        // routing meta field
 	Parent         string                         `json:"_parent"`         // parent meta field
 	Version        *int64                         `json:"_version"`        // version number, when Version is set to true in SearchService
 	Sort           []interface{}                  `json:"sort"`            // sort information
 	Highlight      SearchHitHighlight             `json:"highlight"`       // highlighter information
 	Source         *json.RawMessage               `json:"_source"`         // stored document source
-	Fields         map[string]interface{}         `json:"fields"`          // returned (stored) fields
+	Fields         map[string]interface{}         `json:"fields"`          // returned fields
 	Explanation    *SearchExplanation             `json:"_explanation"`    // explains how the score was computed
 	MatchedQueries []string                       `json:"matched_queries"` // matched queries
 	InnerHits      map[string]*SearchHitInnerHits `json:"inner_hits"`      // inner hits with ES >= 1.5.0

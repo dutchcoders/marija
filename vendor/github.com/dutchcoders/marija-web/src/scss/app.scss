@@ -1,0 +1,116 @@
+@import "../../node_modules/bootstrap-css-only/css/bootstrap.min.css";
+@import "../../node_modules/ionicons/dist/css/ionicons.min.css";
+
+*[class^="col-"] {
+    box-sizing: border-box;
+}
+
+@import "../css/default.css";
+@import "../css/fonts.css";
+@import "variables";
+
+@import 'search';
+@import 'nav';
+@import 'panes';
+
+//@import 'node';
+
+@keyframes fadeIn { 
+      from { opacity: 0; } 
+}
+
+body {
+    font-family: Roboto, "Helvetica Neue", Helvetica, Arial;
+    color: $base-font-color;
+    overflow: hidden;
+    background-color: $body-background-color;
+
+    letter-spacing: 0.6px;
+    font-weight: 300;
+    font-size: 12px;
+
+    header {
+        background-color: $header-background-color;
+        box-shadow: 0 1px 0 0 rgba(0,0,0,0.25);
+
+        nav{
+            padding: 10px 0px;
+
+            .form-group{
+                input.form-control{
+                    border: 0px solid transparent !important;
+                    background-color: transparent !important;
+                    background-image: url('../images/search-icon.png');
+                    background-repeat: no-repeat;
+                    background-size: 26px 25px;
+                    background-position: left center;
+                }
+            }
+        }
+
+    }
+
+    .colorBall {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+
+        position: relative;
+        top: 2px;
+        left: 0;
+
+        margin-right: 5px;
+    }
+
+    .columns td {
+        padding: 0 5px 0 0;
+    }
+
+    .length-limiter {
+        display: block;
+        /* width: 160px; */
+        max-width: 100%;
+        overflow: hidden;
+        -ms-text-overflow: ellipsis;
+        text-overflow: ellipsis;
+        white-space: normal;
+    }
+
+    canvas {
+        cursor: default;
+    }
+
+    .logo-container{
+        width: 81px;
+        height: 68px;
+        margin: -15px 0px;
+        box-shadow: inset -1px 0 0 0 rgba(0,0,0,0.20);
+        text-align:center;
+        float:left;
+    }
+
+    .logo {
+        max-width: auto;
+        max-height: 42px;
+        margin-left: 15px;
+        padding: 13px 0px;
+        
+        &.not-connected{
+            animation: fadeIn 1s infinite alternate;
+        }
+    }
+
+    tr.columns td {
+        vertical-align: top;
+    }
+
+    tr.columns td em, table.details td em {
+        background-color: #fbf425;
+        color: #000;
+        font-style: normal;
+    }
+}
+
+
+@import 'components/field';

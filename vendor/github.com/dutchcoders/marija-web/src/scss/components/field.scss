@@ -1,0 +1,39 @@
+.field {
+    i {
+        width: 16px;
+        text-align: center;
+
+        &.type-indicator {
+            display: block;
+            position: static !important;
+            top: 0 !important;
+            float: left;
+            line-height: 20px;
+            font-size: 12px !important;
+            margin-right: 5px !important;
+        }
+
+    }
+}
+
+i {
+    &.icon {
+        font-family: 'glyphicons halflings'; 
+        font-size: 16px !important;
+        padding-top: 5px;
+
+        display: inline-block;
+        speak: none;
+        font-style: normal;
+        font-weight: normal;
+        font-variant: normal;
+        text-transform: none;
+        text-rendering: auto;
+        line-height: 1;
+        -webkit-font-smoothing: antialiased;
+
+        position: absolute;
+        top: 1px;
+        right: 5px;
+    }
+}

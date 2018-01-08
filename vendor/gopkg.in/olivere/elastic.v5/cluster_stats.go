@@ -5,13 +5,12 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // ClusterStatsService is documented at http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/cluster-stats.html.
@@ -95,7 +94,12 @@ func (s *ClusterStatsService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *ClusterStatsService) Do(ctx context.Context) (*ClusterStatsResponse, error) {
+func (s *ClusterStatsService) Do() (*ClusterStatsResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *ClusterStatsService) DoC(ctx context.Context) (*ClusterStatsResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -108,7 +112,7 @@ func (s *ClusterStatsService) Do(ctx context.Context) (*ClusterStatsResponse, er
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

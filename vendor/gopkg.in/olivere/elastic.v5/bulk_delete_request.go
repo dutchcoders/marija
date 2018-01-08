@@ -12,9 +12,9 @@ import (
 
 // -- Bulk delete request --
 
-// BulkDeleteRequest is a request to remove a document from Elasticsearch.
+// BulkDeleteRequest is a bulk request to remove a document from Elasticsearch.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-bulk.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-bulk.html
 // for details.
 type BulkDeleteRequest struct {
 	BulkableRequest
@@ -23,6 +23,7 @@ type BulkDeleteRequest struct {
 	id          string
 	parent      string
 	routing     string
+	refresh     *bool
 	version     int64  // default is MATCH_ANY
 	versionType string // default is "internal"
 
@@ -68,6 +69,15 @@ func (r *BulkDeleteRequest) Parent(parent string) *BulkDeleteRequest {
 // Routing specifies a routing value for the request.
 func (r *BulkDeleteRequest) Routing(routing string) *BulkDeleteRequest {
 	r.routing = routing
+	r.source = nil
+	return r
+}
+
+// Refresh indicates whether to update the shards immediately after
+// the delete has been processed. Deleted documents will disappear
+// in search immediately at the cost of slower bulk performance.
+func (r *BulkDeleteRequest) Refresh(refresh bool) *BulkDeleteRequest {
+	r.refresh = &refresh
 	r.source = nil
 	return r
 }
@@ -130,6 +140,9 @@ func (r *BulkDeleteRequest) Source() ([]string, error) {
 	}
 	if r.versionType != "" {
 		deleteCommand["_version_type"] = r.versionType
+	}
+	if r.refresh != nil {
+		deleteCommand["refresh"] = *r.refresh
 	}
 	source["delete"] = deleteCommand
 

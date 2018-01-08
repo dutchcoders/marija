@@ -1,43 +1,43 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // UpdateService updates a document in Elasticsearch.
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-update.html
+// See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs-update.html
 // for details.
 type UpdateService struct {
-	client              *Client
-	index               string
-	typ                 string
-	id                  string
-	routing             string
-	parent              string
-	script              *Script
-	fields              []string
-	version             *int64
-	versionType         string
-	retryOnConflict     *int
-	refresh             string
-	waitForActiveShards string
-	upsert              interface{}
-	scriptedUpsert      *bool
-	docAsUpsert         *bool
-	detectNoop          *bool
-	doc                 interface{}
-	timeout             string
-	pretty              bool
+	client           *Client
+	index            string
+	typ              string
+	id               string
+	routing          string
+	parent           string
+	script           *Script
+	fields           []string
+	version          *int64
+	versionType      string
+	retryOnConflict  *int
+	refresh          *bool
+	replicationType  string
+	consistencyLevel string
+	upsert           interface{}
+	scriptedUpsert   *bool
+	docAsUpsert      *bool
+	detectNoop       *bool
+	doc              interface{}
+	timeout          string
+	pretty           bool
 }
 
 // NewUpdateService creates the service to update documents in Elasticsearch.
@@ -112,17 +112,21 @@ func (b *UpdateService) VersionType(versionType string) *UpdateService {
 }
 
 // Refresh the index after performing the update.
-func (b *UpdateService) Refresh(refresh string) *UpdateService {
-	b.refresh = refresh
+func (b *UpdateService) Refresh(refresh bool) *UpdateService {
+	b.refresh = &refresh
 	return b
 }
 
-// WaitForActiveShards sets the number of shard copies that must be active before
-// proceeding with the update operation. Defaults to 1, meaning the primary shard only.
-// Set to `all` for all shard copies, otherwise set to any non-negative value less than
-// or equal to the total number of copies for the shard (number of replicas + 1).
-func (b *UpdateService) WaitForActiveShards(waitForActiveShards string) *UpdateService {
-	b.waitForActiveShards = waitForActiveShards
+// ReplicationType is one of "sync" or "async".
+func (b *UpdateService) ReplicationType(replicationType string) *UpdateService {
+	b.replicationType = replicationType
+	return b
+}
+
+// ConsistencyLevel is one of "one", "quorum", or "all".
+// It sets the write consistency setting for the update operation.
+func (b *UpdateService) ConsistencyLevel(consistencyLevel string) *UpdateService {
+	b.consistencyLevel = consistencyLevel
 	return b
 }
 
@@ -200,11 +204,14 @@ func (b *UpdateService) url() (string, url.Values, error) {
 	if b.timeout != "" {
 		params.Set("timeout", b.timeout)
 	}
-	if b.refresh != "" {
-		params.Set("refresh", b.refresh)
+	if b.refresh != nil {
+		params.Set("refresh", fmt.Sprintf("%v", *b.refresh))
 	}
-	if b.waitForActiveShards != "" {
-		params.Set("wait_for_active_shards", b.waitForActiveShards)
+	if b.replicationType != "" {
+		params.Set("replication", b.replicationType)
+	}
+	if b.consistencyLevel != "" {
+		params.Set("consistency", b.consistencyLevel)
 	}
 	if len(b.fields) > 0 {
 		params.Set("fields", strings.Join(b.fields, ","))
@@ -256,7 +263,12 @@ func (b *UpdateService) body() (interface{}, error) {
 }
 
 // Do executes the update operation.
-func (b *UpdateService) Do(ctx context.Context) (*UpdateResponse, error) {
+func (b *UpdateService) Do() (*UpdateResponse, error) {
+	return b.DoC(nil)
+}
+
+// DoC executes the update operation.
+func (b *UpdateService) DoC(ctx context.Context) (*UpdateResponse, error) {
 	path, params, err := b.url()
 	if err != nil {
 		return nil, err
@@ -269,7 +281,7 @@ func (b *UpdateService) Do(ctx context.Context) (*UpdateResponse, error) {
 	}
 
 	// Get response
-	res, err := b.client.PerformRequest(ctx, "POST", path, params, body)
+	res, err := b.client.PerformRequestC(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}

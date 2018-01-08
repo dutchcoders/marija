@@ -1,16 +1,15 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/uritemplates"
+	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
 
 // IndicesPutTemplateService creates or updates index mappings.
@@ -140,7 +139,12 @@ func (s *IndicesPutTemplateService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesPutTemplateService) Do(ctx context.Context) (*IndicesPutTemplateResponse, error) {
+func (s *IndicesPutTemplateService) Do() (*IndicesPutTemplateResponse, error) {
+	return s.DoC(nil)
+}
+
+// DoC executes the operation.
+func (s *IndicesPutTemplateService) DoC(ctx context.Context) (*IndicesPutTemplateResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -161,7 +165,7 @@ func (s *IndicesPutTemplateService) Do(ctx context.Context) (*IndicesPutTemplate
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequest(ctx, "PUT", path, params, body)
+	res, err := s.client.PerformRequestC(ctx, "PUT", path, params, body)
 	if err != nil {
 		return nil, err
 	}

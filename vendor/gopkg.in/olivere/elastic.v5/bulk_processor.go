@@ -1,4 +1,4 @@
-// Copyright 2012-present Oliver Eilhard. All rights reserved.
+// Copyright 2012-2016 Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,9 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"gopkg.in/olivere/elastic.v5/backoff"
+	"gopkg.in/olivere/elastic.v3/backoff"
 )
 
 // BulkProcessorService allows to easily process bulk requests. It allows setting
@@ -466,7 +464,7 @@ func (w *bulkWorker) commit() error {
 	// via exponential backoff
 	commitFunc := func() error {
 		var err error
-		res, err = w.service.Do(context.Background())
+		res, err = w.service.Do()
 		return err
 	}
 	// notifyFunc will be called if retry fails
