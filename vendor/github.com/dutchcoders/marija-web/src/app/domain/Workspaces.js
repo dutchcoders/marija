@@ -104,4 +104,8 @@ export default class Workspaces {
             return false
         }
     }
+
+    static deleteWorkspace() {
+        localStorage.removeItem("current_workspace");
+    }
 }

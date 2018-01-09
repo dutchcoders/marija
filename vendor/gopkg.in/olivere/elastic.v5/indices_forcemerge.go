@@ -1,16 +1,17 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // IndicesForcemergeService allows to force merging of one or more indices.
@@ -18,7 +19,7 @@ import (
 // within each shard. The force merge operation allows to reduce the number
 // of segments by merging them.
 //
-// See http://www.elastic.co/guide/en/elasticsearch/reference/2.1/indices-forcemerge.html
+// See http://www.elastic.co/guide/en/elasticsearch/reference/2.4/indices-forcemerge.html
 // for more information.
 type IndicesForcemergeService struct {
 	client             *Client
@@ -31,7 +32,6 @@ type IndicesForcemergeService struct {
 	maxNumSegments     interface{}
 	onlyExpungeDeletes *bool
 	operationThreading interface{}
-	waitForMerge       *bool
 }
 
 // NewIndicesForcemergeService creates a new IndicesForcemergeService.
@@ -100,13 +100,6 @@ func (s *IndicesForcemergeService) OperationThreading(operationThreading interfa
 	return s
 }
 
-// WaitForMerge specifies whether the request should block until the
-// merge process is finished (default: true).
-func (s *IndicesForcemergeService) WaitForMerge(waitForMerge bool) *IndicesForcemergeService {
-	s.waitForMerge = &waitForMerge
-	return s
-}
-
 // Pretty indicates that the JSON response be indented and human readable.
 func (s *IndicesForcemergeService) Pretty(pretty bool) *IndicesForcemergeService {
 	s.pretty = pretty
@@ -156,9 +149,6 @@ func (s *IndicesForcemergeService) buildURL() (string, url.Values, error) {
 	if s.operationThreading != nil {
 		params.Set("operation_threading", fmt.Sprintf("%v", s.operationThreading))
 	}
-	if s.waitForMerge != nil {
-		params.Set("wait_for_merge", fmt.Sprintf("%v", *s.waitForMerge))
-	}
 	return path, params, nil
 }
 
@@ -168,12 +158,7 @@ func (s *IndicesForcemergeService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesForcemergeService) Do() (*IndicesForcemergeResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *IndicesForcemergeService) DoC(ctx context.Context) (*IndicesForcemergeResponse, error) {
+func (s *IndicesForcemergeService) Do(ctx context.Context) (*IndicesForcemergeResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -186,7 +171,7 @@ func (s *IndicesForcemergeService) DoC(ctx context.Context) (*IndicesForcemergeR
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "POST", path, params, nil)
+	res, err := s.client.PerformRequest(ctx, "POST", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

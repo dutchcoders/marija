@@ -13,6 +13,7 @@ import { normalize, fieldLocator } from '../../helpers/index';
 
 import { Icon } from '../../components/index';
 import { deleteSearch } from '../../modules/search/index';
+import Url from "../../domain/Url";
 
 
 class Queries extends React.Component {
@@ -39,7 +40,9 @@ class Queries extends React.Component {
 
     handleDeleteQuery(query) {
         const { dispatch } = this.props;
+
         dispatch(deleteSearch({search: query}));
+        Url.removeQueryParam('search', query.q);
     }
 
     handleChangeQueryColorComplete(color) {
@@ -77,17 +80,16 @@ class Queries extends React.Component {
         }
 
         return (
-                <div className="queries">
-                    <ul>
+            <div className="queries">
+                <ul>
                     {map(queries, (query) => {
                         return (
                                 <li key={query.q} style={{backgroundColor: query.color}}>
                                 { `${query.q}` }&nbsp;<span className="count">{ `${query.items.length}`}<b>{`(${query.total})` }</b></span>
-                                <Icon style={{'marginRight': '10px'}}
-                                    onClick={(e) => this.handleEditQuery(query, e) }
-                                    name="ion-ios-brush"/>
-                                <Icon style={{'marginRight': '10px'}} onClick={(e) => this.handleDeleteQuery(query) }
-                                    name="ion-ios-trash-outline"/>
+                                <Icon onClick={(e) => this.handleEditQuery(query, e) }
+                                    name="ion-ios-gear"/>
+                                <Icon onClick={(e) => this.handleDeleteQuery(query) }
+                                    name="ion-ios-close"/>
                                 </li>
                         );
                     })}

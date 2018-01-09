@@ -1,16 +1,51 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	_ "net/http"
 	"testing"
+
+	"golang.org/x/net/context"
 )
+
+func TestSuggestBuildURL(t *testing.T) {
+	client := setupTestClient(t)
+
+	tests := []struct {
+		Indices  []string
+		Expected string
+	}{
+		{
+			[]string{},
+			"/_suggest",
+		},
+		{
+			[]string{"index1"},
+			"/index1/_suggest",
+		},
+		{
+			[]string{"index1", "index2"},
+			"/index1%2Cindex2/_suggest",
+		},
+	}
+
+	for i, test := range tests {
+		path, _, err := client.Suggest().Index(test.Indices...).buildURL()
+		if err != nil {
+			t.Errorf("case #%d: %v", i+1, err)
+			continue
+		}
+		if path != test.Expected {
+			t.Errorf("case #%d: expected %q; got: %q", i+1, test.Expected, path)
+		}
+	}
+}
 
 func TestSuggestService(t *testing.T) {
 	client := setupTestClientAndCreateIndex(t)
+	// client := setupTestClientAndCreateIndex(t, SetTraceLog(log.New(os.Stdout, "", 0)))
 
 	tweet1 := tweet{
 		User:     "olivere",
@@ -19,7 +54,6 @@ func TestSuggestService(t *testing.T) {
 		Location: "48.1333,11.5667", // lat,lon
 		Suggest: NewSuggestField().
 			Input("Welcome to Golang and Elasticsearch.", "Golang and Elasticsearch").
-			Output("Golang and Elasticsearch: An introduction.").
 			Weight(0),
 	}
 	tweet2 := tweet{
@@ -29,7 +63,6 @@ func TestSuggestService(t *testing.T) {
 		Location: "48.1189,11.4289", // lat,lon
 		Suggest: NewSuggestField().
 			Input("Another unrelated topic.", "Golang topic.").
-			Output("About Golang.").
 			Weight(1),
 	}
 	tweet3 := tweet{
@@ -38,27 +71,26 @@ func TestSuggestService(t *testing.T) {
 		Tags:     []string{"sports", "cycling"},
 		Location: "47.7167,11.7167", // lat,lon
 		Suggest: NewSuggestField().
-			Input("Cycling is fun.").
-			Output("Cycling is a fun sport."),
+			Input("Cycling is fun."),
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +108,7 @@ func TestSuggestService(t *testing.T) {
 		Suggester(termSuggester).
 		Suggester(phraseSuggester).
 		Suggester(completionSuggester).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,10 +154,10 @@ func TestSuggestService(t *testing.T) {
 	if len(completionSuggestions[0].Options) != 2 {
 		t.Errorf("expected 2 suggestion options; got %d", len(completionSuggestions[0].Options))
 	}
-	if completionSuggestions[0].Options[0].Text != "About Golang." {
-		t.Errorf("expected Suggest[%s][0].Options[0].Text == %q; got %q", completionSuggesterName, "About Golang.", completionSuggestions[0].Options[0].Text)
+	if have, want := completionSuggestions[0].Options[0].Text, "Golang topic."; have != want {
+		t.Errorf("expected Suggest[%s][0].Options[0].Text == %q; got %q", completionSuggesterName, want, have)
 	}
-	if completionSuggestions[0].Options[1].Text != "Golang and Elasticsearch: An introduction." {
-		t.Errorf("expected Suggest[%s][0].Options[1].Text == %q; got %q", completionSuggesterName, "Golang and Elasticsearch: An introduction.", completionSuggestions[0].Options[1].Text)
+	if have, want := completionSuggestions[0].Options[1].Text, "Golang and Elasticsearch"; have != want {
+		t.Errorf("expected Suggest[%s][0].Options[1].Text == %q; got %q", completionSuggesterName, want, have)
 	}
 }

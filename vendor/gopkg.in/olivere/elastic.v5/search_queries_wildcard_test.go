@@ -1,14 +1,15 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/olivere/elastic.v3"
+	"gopkg.in/olivere/elastic.v5"
 )
 
 func ExampleWildcardQuery() {
@@ -22,9 +23,9 @@ func ExampleWildcardQuery() {
 	// Define wildcard query
 	q := elastic.NewWildcardQuery("user", "oli*er?").Boost(1.2)
 	searchResult, err := client.Search().
-		Index("twitter"). // search in index "twitter"
-		Query(q).         // use wildcard query defined above
-		Do()              // execute
+		Index("twitter").  // search in index "twitter"
+		Query(q).          // use wildcard query defined above
+		Do(context.TODO()) // execute
 	if err != nil {
 		// Handle error
 		panic(err)

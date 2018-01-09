@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -84,8 +84,9 @@ type ErrorDetails struct {
 func (e *Error) Error() string {
 	if e.Details != nil && e.Details.Reason != "" {
 		return fmt.Sprintf("elastic: Error %d (%s): %s [type=%s]", e.Status, http.StatusText(e.Status), e.Details.Reason, e.Details.Type)
+	} else {
+		return fmt.Sprintf("elastic: Error %d (%s)", e.Status, http.StatusText(e.Status))
 	}
-	return fmt.Sprintf("elastic: Error %d (%s)", e.Status, http.StatusText(e.Status))
 }
 
 // IsNotFound returns true if the given error indicates that Elasticsearch

@@ -1,15 +1,16 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // IndicesCloseService closes an index.
@@ -121,12 +122,7 @@ func (s *IndicesCloseService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndicesCloseService) Do() (*IndicesCloseResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *IndicesCloseService) DoC(ctx context.Context) (*IndicesCloseResponse, error) {
+func (s *IndicesCloseService) Do(ctx context.Context) (*IndicesCloseResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -139,7 +135,7 @@ func (s *IndicesCloseService) DoC(ctx context.Context) (*IndicesCloseResponse, e
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "POST", path, params, nil)
+	res, err := s.client.PerformRequest(ctx, "POST", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -26,22 +26,17 @@ type FunctionScoreQuery struct {
 
 // NewFunctionScoreQuery creates and initializes a new function score query.
 func NewFunctionScoreQuery() *FunctionScoreQuery {
-	return &FunctionScoreQuery{
-		filters:    make([]Query, 0),
-		scoreFuncs: make([]ScoreFunction, 0),
-	}
+	return &FunctionScoreQuery{}
 }
 
 // Query sets the query for the function score query.
 func (q *FunctionScoreQuery) Query(query Query) *FunctionScoreQuery {
 	q.query = query
-	q.filter = nil
 	return q
 }
 
 // Filter sets the filter for the function score query.
 func (q *FunctionScoreQuery) Filter(filter Query) *FunctionScoreQuery {
-	q.query = nil
 	q.filter = filter
 	return q
 }
@@ -107,7 +102,9 @@ func (q *FunctionScoreQuery) Source() (interface{}, error) {
 			return nil, err
 		}
 		query["query"] = src
-	} else if q.filter != nil {
+	}
+
+	if q.filter != nil {
 		src, err := q.filter.Source()
 		if err != nil {
 			return nil, err

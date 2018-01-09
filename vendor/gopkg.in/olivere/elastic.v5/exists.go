@@ -1,16 +1,17 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // ExistsService checks for the existence of a document using HEAD.
@@ -25,7 +26,7 @@ type ExistsService struct {
 	typ        string
 	preference string
 	realtime   *bool
-	refresh    *bool
+	refresh    string
 	routing    string
 	parent     string
 }
@@ -69,8 +70,8 @@ func (s *ExistsService) Realtime(realtime bool) *ExistsService {
 }
 
 // Refresh the shard containing the document before performing the operation.
-func (s *ExistsService) Refresh(refresh bool) *ExistsService {
-	s.refresh = &refresh
+func (s *ExistsService) Refresh(refresh string) *ExistsService {
+	s.refresh = refresh
 	return s
 }
 
@@ -112,8 +113,8 @@ func (s *ExistsService) buildURL() (string, url.Values, error) {
 	if s.realtime != nil {
 		params.Set("realtime", fmt.Sprintf("%v", *s.realtime))
 	}
-	if s.refresh != nil {
-		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
+	if s.refresh != "" {
+		params.Set("refresh", s.refresh)
 	}
 	if s.routing != "" {
 		params.Set("routing", s.routing)
@@ -146,12 +147,7 @@ func (s *ExistsService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *ExistsService) Do() (bool, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *ExistsService) DoC(ctx context.Context) (bool, error) {
+func (s *ExistsService) Do(ctx context.Context) (bool, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return false, err
@@ -164,7 +160,7 @@ func (s *ExistsService) DoC(ctx context.Context) (bool, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "HEAD", path, params, nil, 404)
+	res, err := s.client.PerformRequest(ctx, "HEAD", path, params, nil, 404)
 	if err != nil {
 		return false, err
 	}

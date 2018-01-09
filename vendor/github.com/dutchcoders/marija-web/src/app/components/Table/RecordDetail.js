@@ -68,7 +68,7 @@ export default class Record extends Component {
                 <tr key={ 'field_' + value }>
                     <td width="110">{value}
                         <Icon onClick={() => this.handleTableAddColumn(value)}
-                            name="ion-ios-add-circle"
+                            name="ion-ios-plus"
                             style={{marginLeft: '8px', lineHeight: '20px', fontSize: '12px'}}/>
                     </td>
                     <td colSpan="3" dangerouslySetInnerHTML={{ __html: clean }}></td>
@@ -77,9 +77,9 @@ export default class Record extends Component {
         });
 
         return ([
-            <td>
+            <td key={1}>
             </td>,
-            <td colSpan={columns.length ? columns.length : 1 }>
+            <td colSpan={columns.length ? columns.length : 1 } key={2}>
                 <table className="details">
                     <tbody>{ expandedFields }</tbody>
                 </table>

@@ -14,14 +14,13 @@ import (
 func (c *connection) GetFields(ctx context.Context, r GetFieldsRequest) error {
 	for _, server := range r.Datasources {
 		var datasource datasources.Index
-		if d, ok := c.server.Datasources[server]; !ok {
+		datasource, ok := c.server.Datasources[server]
+		if !ok {
 			log.Errorf("Could not find datasource: %s", server)
 			continue
-		} else {
-			datasource = d
 		}
 
-		fields, err := datasource.Fields()
+		fields, err := datasource.GetFields(ctx)
 		if err != nil {
 			return err
 		}

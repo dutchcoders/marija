@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -7,13 +7,15 @@ package elastic
 import (
 	"net/url"
 	"testing"
+
+	"golang.org/x/net/context"
 )
 
 func TestClusterStats(t *testing.T) {
 	client := setupTestClientAndCreateIndex(t)
 
 	// Get cluster stats
-	res, err := client.ClusterStats().Do()
+	res, err := client.ClusterStats().Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

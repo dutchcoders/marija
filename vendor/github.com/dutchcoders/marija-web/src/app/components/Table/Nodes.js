@@ -221,26 +221,14 @@ class Nodes extends React.Component {
 
         return (
             <div className="form-group toolbar">
-                <div className="btn-group btn-group-justified" role="group"> 
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Clear selection" onClick={() => this.handleClearSelection()}>clear</button> 
-                    </div>
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Select related nodes" onClick={() => this.handleSelectRelatedNodes()}>related</button> 
-                    </div>
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Find nodes" onClick={() => this.handleFindNodes()}>find</button> 
-                    </div>
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Select all nodes" onClick={() => this.handleSelectAllNodes()}>all</button> 
-                    </div>
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Delete selected nodes" onClick={() => this.handleDeleteAllNodes()}>delete</button> 
-                    </div>
-                    <div className="btn-group" role="group">
-                        <button type="button" className="btn btn-default" aria-label="Delete but selected nodes" onClick={() => this.handleDeleteAllButSelectedNodes()}>inverse delete</button> 
-                    </div>
-                </div> 
+                <div className="nodes-btn-group" role="group">
+                    <button type="button" className="btn btn-default" aria-label="Clear selection" onClick={() => this.handleClearSelection()}>clear</button>
+                    <button type="button" className="btn btn-default" aria-label="Select related nodes" onClick={() => this.handleSelectRelatedNodes()}>related</button>
+                    <button type="button" className="btn btn-default" aria-label="Find nodes" onClick={() => this.handleFindNodes()}>find</button>
+                    <button type="button" className="btn btn-default" aria-label="Select all nodes" onClick={() => this.handleSelectAllNodes()}>all</button>
+                    <button type="button" className="btn btn-default" aria-label="Delete selected nodes" onClick={() => this.handleDeleteAllNodes()}>delete</button>
+                    <button type="button" className="btn btn-default" aria-label="Delete but selected nodes" onClick={() => this.handleDeleteAllButSelectedNodes()}>inverse delete</button>
+                </div>
                 <div>
                     <ul>
                         {this.renderSelected()}

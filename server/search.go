@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	_ "log"
+	"runtime"
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
@@ -12,6 +13,7 @@ import (
 	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
 	_ "github.com/dutchcoders/marija/server/datasources/es5"
 	_ "github.com/dutchcoders/marija/server/datasources/twitter"
+	uuid "github.com/satori/go.uuid"
 )
 
 func (c *connection) Search(ctx context.Context, r SearchRequest) error {
@@ -35,6 +37,15 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 		}
 
 		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					trace := make([]byte, 1024)
+					count := runtime.Stack(trace, true)
+					log.Errorf("Error: %s", err)
+					log.Debugf("Stack of %d bytes: %s\n", count, string(trace))
+				}
+			}()
+
 			response := datasource.Search(ctx, datasources.SearchOptions{
 				Query: r.Query,
 			})
@@ -46,6 +57,10 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 			for {
 				select {
 				case <-ctx.Done():
+					c.Send(&SearchCanceled{
+						RequestID: r.RequestID,
+					})
+
 					return
 				case err, ok := <-response.Error():
 					if !ok {
@@ -65,6 +80,10 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 							RequestID: r.RequestID,
 							Query:     r.Query,
 							Nodes:     items,
+						})
+
+						c.Send(&SearchCompleted{
+							RequestID: r.RequestID,
 						})
 
 						return
@@ -91,17 +110,24 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 						default:
 						}
 					}
+
 					hash := h.Sum(nil)
 
-					if unique.Contains(hash) {
-						continue
+					i := &datasources.Item{
+						ID:     uuid.NewV4().String(),
+						Fields: values,
+						Count:  1,
 					}
 
-					unique.Add(hash)
+					if v, ok := unique.Get(hash); ok {
+						i = v
 
-					items = append(items, datasources.Item{
-						Fields: values,
-					})
+						i.Count++
+					}
+
+					unique.Add(hash, i)
+
+					items = append(items, *i)
 
 					if len(items) < 20 {
 						continue

@@ -1,6 +1,10 @@
 package elastic
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/net/context"
+)
 
 func TestIndicesAnalyzeURL(t *testing.T) {
 	client := setupTestClient(t)
@@ -34,7 +38,7 @@ func TestIndicesAnalyze(t *testing.T) {
 	client := setupTestClient(t)
 	// client := setupTestClientAndCreateIndexAndLog(t, SetTraceLog(log.New(os.Stdout, "", 0)))
 
-	res, err := client.IndexAnalyze().Text("hello hi guy").Do()
+	res, err := client.IndexAnalyze().Text("hello hi guy").Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -47,7 +51,7 @@ func TestIndicesAnalyzeDetail(t *testing.T) {
 	client := setupTestClient(t)
 	// client := setupTestClientAndCreateIndexAndLog(t, SetTraceLog(log.New(os.Stdout, "", 0)))
 
-	res, err := client.IndexAnalyze().Text("hello hi guy").Explain(true).Do()
+	res, err := client.IndexAnalyze().Text("hello hi guy").Explain(true).Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -60,7 +64,7 @@ func TestIndicesAnalyzeDetail(t *testing.T) {
 func TestIndicesAnalyzeWithIndex(t *testing.T) {
 	client := setupTestClient(t)
 
-	_, err := client.IndexAnalyze().Index("foo").Text("hello hi guy").Do()
+	_, err := client.IndexAnalyze().Index("foo").Text("hello hi guy").Do(context.TODO())
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -72,7 +76,7 @@ func TestIndicesAnalyzeWithIndex(t *testing.T) {
 func TestIndicesAnalyzeValidate(t *testing.T) {
 	client := setupTestClient(t)
 
-	_, err := client.IndexAnalyze().Do()
+	_, err := client.IndexAnalyze().Do(context.TODO())
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

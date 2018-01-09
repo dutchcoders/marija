@@ -1,16 +1,20 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/net/context"
+)
 
 func TestIndicesDeleteValidate(t *testing.T) {
 	client := setupTestClient(t)
 
 	// No index name -> fail with error
-	res, err := NewIndicesDeleteService(client).Do()
+	res, err := NewIndicesDeleteService(client).Do(context.TODO())
 	if err == nil {
 		t.Fatalf("expected IndicesDelete to fail without index name")
 	}

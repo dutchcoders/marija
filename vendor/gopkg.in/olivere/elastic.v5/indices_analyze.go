@@ -5,11 +5,12 @@
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // IndicesAnalyzeService performs the analysis process on a text and returns
@@ -164,13 +165,8 @@ func (s *IndicesAnalyzeService) buildURL() (string, url.Values, error) {
 	return path, params, nil
 }
 
-// Do will execute the request.
-func (s *IndicesAnalyzeService) Do() (*IndicesAnalyzeResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC will execute the request with the given context.
-func (s *IndicesAnalyzeService) DoC(ctx context.Context) (*IndicesAnalyzeResponse, error) {
+// Do will execute the request with the given context.
+func (s *IndicesAnalyzeService) Do(ctx context.Context) (*IndicesAnalyzeResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -194,7 +190,7 @@ func (s *IndicesAnalyzeService) DoC(ctx context.Context) (*IndicesAnalyzeRespons
 		body = s.request
 	}
 
-	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}

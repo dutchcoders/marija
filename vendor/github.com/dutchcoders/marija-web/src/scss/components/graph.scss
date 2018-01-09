@@ -1,0 +1,34 @@
+canvas.graph {
+  &.selecting {
+    cursor: crosshair;
+  }
+
+  &.moving {
+    cursor: move;
+  }
+}
+
+.mapControls {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  padding: 5px;
+  display: flex;
+
+  li {
+    list-style: none;
+    margin: 0 5px;
+
+    &.active {
+      color: #5CA1E6;
+    }
+  }
+
+  i {
+    font-size: 25px;
+    cursor: pointer;
+  }
+}

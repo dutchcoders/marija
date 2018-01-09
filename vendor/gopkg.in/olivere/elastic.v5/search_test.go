@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 func TestSearchMatchAll(t *testing.T) {
@@ -21,7 +23,7 @@ func TestSearchMatchAll(t *testing.T) {
 		Query(NewMatchAllQuery()).
 		Size(100).
 		Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +60,7 @@ func TestSearchMatchAllWithRequestCacheDisabled(t *testing.T) {
 		Size(100).
 		Pretty(true).
 		RequestCache(false).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +81,7 @@ func BenchmarkSearchMatchAll(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		// Match all should return all documents
 		all := NewMatchAllQuery()
-		searchResult, err := client.Search().Index(testIndexName).Query(all).Do()
+		searchResult, err := client.Search().Index(testIndexName).Query(all).Do(context.TODO())
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -95,13 +97,13 @@ func BenchmarkSearchMatchAll(b *testing.B) {
 func TestSearchResultTotalHits(t *testing.T) {
 	client := setupTestClientAndCreateIndexAndAddDocs(t)
 
-	count, err := client.Count(testIndexName).Do()
+	count, err := client.Count(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	all := NewMatchAllQuery()
-	searchResult, err := client.Search().Index(testIndexName).Query(all).Do()
+	searchResult, err := client.Search().Index(testIndexName).Query(all).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +125,7 @@ func TestSearchResultEach(t *testing.T) {
 	client := setupTestClientAndCreateIndexAndAddDocs(t)
 
 	all := NewMatchAllQuery()
-	searchResult, err := client.Search().Index(testIndexName).Query(all).Do()
+	searchResult, err := client.Search().Index(testIndexName).Query(all).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,22 +202,22 @@ func TestSearchSorting(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +229,7 @@ func TestSearchSorting(t *testing.T) {
 		Query(all).
 		Sort("created", false).
 		Timeout("1s").
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,22 +275,22 @@ func TestSearchSortingBySorters(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +302,7 @@ func TestSearchSortingBySorters(t *testing.T) {
 		Query(all).
 		SortBy(NewFieldSort("created").Desc(), NewScoreSort()).
 		Timeout("1s").
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,6 +329,7 @@ func TestSearchSortingBySorters(t *testing.T) {
 }
 
 func TestSearchSpecificFields(t *testing.T) {
+	// client := setupTestClientAndCreateIndexAndLog(t, SetTraceLog(log.New(os.Stdout, "", 0)))
 	client := setupTestClientAndCreateIndex(t)
 
 	tweet1 := tweet{User: "olivere", Message: "Welcome to Golang and Elasticsearch."}
@@ -334,22 +337,22 @@ func TestSearchSpecificFields(t *testing.T) {
 	tweet3 := tweet{User: "sandrae", Message: "Cycling is fun."}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,8 +362,8 @@ func TestSearchSpecificFields(t *testing.T) {
 	searchResult, err := client.Search().
 		Index(testIndexName).
 		Query(all).
-		Fields("message").
-		Do()
+		StoredFields("message").
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -407,6 +410,7 @@ func TestSearchSpecificFields(t *testing.T) {
 
 func TestSearchExplain(t *testing.T) {
 	client := setupTestClientAndCreateIndex(t)
+	// client := setupTestClientAndCreateIndex(t, SetTraceLog(log.New(os.Stdout, "", 0)))
 
 	tweet1 := tweet{
 		User: "olivere", Retweets: 108,
@@ -425,22 +429,22 @@ func TestSearchExplain(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +457,7 @@ func TestSearchExplain(t *testing.T) {
 		Explain(true).
 		Timeout("1s").
 		// Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -503,22 +507,22 @@ func TestSearchSource(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -533,7 +537,7 @@ func TestSearchSource(t *testing.T) {
 	searchResult, err := client.Search().
 		Index(testIndexName).
 		Source(source). // sets the JSON request
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,22 +570,22 @@ func TestSearchRawString(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -590,7 +594,7 @@ func TestSearchRawString(t *testing.T) {
 	searchResult, err := client.Search().
 		Index(testIndexName).
 		Query(query).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -622,22 +626,22 @@ func TestSearchSearchSource(t *testing.T) {
 	}
 
 	// Add all documents
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -651,7 +655,7 @@ func TestSearchSearchSource(t *testing.T) {
 	searchResult, err := client.Search().
 		Index(testIndexName).
 		SearchSource(ss). // sets the SearchSource
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,32 +703,32 @@ func TestSearchInnerHitsOnHasChild(t *testing.T) {
 	comment3b := comment{User: "olivere", Comment: "It sure is."}
 
 	// Add all documents
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t1").BodyJson(&tweet1).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c2a").Parent("t2").BodyJson(&comment2a).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c2a").Parent("t2").BodyJson(&comment2a).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3a").Parent("t3").BodyJson(&comment3a).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3a").Parent("t3").BodyJson(&comment3a).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3b").Parent("t3").BodyJson(&comment3b).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3b").Parent("t3").BodyJson(&comment3b).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -738,7 +742,7 @@ func TestSearchInnerHitsOnHasChild(t *testing.T) {
 		Index(testIndexName).
 		Query(bq).
 		Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -837,32 +841,32 @@ func TestSearchInnerHitsOnHasParent(t *testing.T) {
 	comment3b := comment{User: "olivere", Comment: "It sure is."}
 
 	// Add all documents
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t1").BodyJson(&tweet1).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c2a").Parent("t2").BodyJson(&comment2a).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c2a").Parent("t2").BodyJson(&comment2a).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("t3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3a").Parent("t3").BodyJson(&comment3a).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3a").Parent("t3").BodyJson(&comment3a).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3b").Parent("t3").BodyJson(&comment3b).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("c3b").Parent("t3").BodyJson(&comment3b).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -876,7 +880,7 @@ func TestSearchInnerHitsOnHasParent(t *testing.T) {
 		Index(testIndexName).
 		Query(bq).
 		Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1020,28 +1024,6 @@ func TestSearchBuildURL(t *testing.T) {
 	}
 }
 
-func TestSearchResultHasShards(t *testing.T) {
-	//client := setupTestClientAndCreateIndexAndAddDocs(t, SetTraceLog(log.New(os.Stdout, "", log.LstdFlags)))
-	client := setupTestClientAndCreateIndexAndAddDocs(t)
-
-	// Match all should return all documents
-	searchResult, err := client.Search().
-		Index(testIndexName).
-		Query(NewMatchAllQuery()).
-		Size(100).
-		Pretty(true).
-		Do()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if searchResult.Shards == nil {
-		t.Errorf("expected SearchResult.Shards != nil; got nil")
-	}
-	if got, want := searchResult.Shards.Failed, 0; got != want {
-		t.Errorf("expected SearchResult.Shards.Failed = %d; got %d", want, got)
-	}
-}
-
 func TestSearchFilterPath(t *testing.T) {
 	// client := setupTestClientAndCreateIndexAndAddDocs(t, SetTraceLog(log.New(os.Stdout, "", log.LstdFlags)))
 	client := setupTestClientAndCreateIndexAndAddDocs(t)
@@ -1060,7 +1042,7 @@ func TestSearchFilterPath(t *testing.T) {
 		).
 		Timeout("1s").
 		Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

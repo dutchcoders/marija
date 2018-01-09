@@ -1,10 +1,14 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/net/context"
+)
 
 func TestExplain(t *testing.T) {
 	client := setupTestClientAndCreateIndex(t)
@@ -17,8 +21,8 @@ func TestExplain(t *testing.T) {
 		Type("tweet").
 		Id("1").
 		BodyJson(&tweet1).
-		Refresh(true).
-		Do()
+		Refresh("true").
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +32,7 @@ func TestExplain(t *testing.T) {
 
 	// Explain
 	query := NewTermQuery("user", "olivere")
-	expl, err := client.Explain(testIndexName, "tweet", "1").Query(query).Do()
+	expl, err := client.Explain(testIndexName, "tweet", "1").Query(query).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,5 @@
 @import "../../node_modules/bootstrap-css-only/css/bootstrap.min.css";
-@import "../../node_modules/ionicons/dist/css/ionicons.min.css";
+@import "../../node_modules/ionicons-npm/css/ionicons.min.css";
 
 *[class^="col-"] {
     box-sizing: border-box;
@@ -12,6 +12,7 @@
 @import 'search';
 @import 'nav';
 @import 'panes';
+@import 'rc-tooltip';
 
 //@import 'node';
 
@@ -114,3 +115,4 @@ body {
 
 
 @import 'components/field';
+@import 'components/graph';

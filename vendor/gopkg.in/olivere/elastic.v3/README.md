@@ -226,6 +226,7 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
   - [x] Cardinality
   - [x] Extended Stats
   - [x] Geo Bounds
+  - [ ] Geo Centroid
   - [x] Max
   - [x] Min
   - [x] Percentiles
@@ -245,7 +246,7 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
   - [ ] GeoHash Grid
   - [x] Global
   - [x] Histogram
-  - [x] IPv4 Range
+  - [x] IP Range
   - [x] Missing
   - [x] Nested
   - [x] Range
@@ -259,6 +260,9 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
   - [x] Max Bucket
   - [x] Min Bucket
   - [x] Sum Bucket
+  - [x] Stats Bucket
+  - [ ] Extended Stats Bucket
+  - [ ] Percentiles Bucket
   - [x] Moving Average
   - [x] Cumulative Sum
   - [x] Bucket Script
@@ -280,7 +284,7 @@ See the [wiki](https://github.com/olivere/elastic/wiki) for more details.
 - [x] Index Aliases
 - [x] Update Indices Settings
 - [x] Get Settings
-- [ ] Analyze
+- [x] Analyze
 - [x] Index Templates
 - [x] Warmers
 - [x] Indices Stats

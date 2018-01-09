@@ -3,11 +3,13 @@ import { connect} from 'react-redux';
 import Dimensions from 'react-dimensions';
 
 import * as d3 from 'd3';
-import { map, clone, groupBy, reduce, forEach, difference, find, uniq, remove, each, includes, assign, isEqual } from 'lodash';
+import { map, clone, groupBy, reduce, forEach, difference, find, uniq, remove, each, includes, assign, isEqual, isEmpty } from 'lodash';
 import moment from 'moment';
 
-import { nodesSelect, highlightNodes, nodeSelect } from '../../modules/graph/index';
+import { nodesSelect, highlightNodes, nodeSelect, deselectNodes } from '../../modules/graph/index';
 import { normalize, fieldLocator } from '../../helpers/index';
+import Loader from "../Misc/Loader";
+import {Icon} from "../index";
 
 var Worker = require("worker-loader!./Worker");
 
@@ -26,12 +28,22 @@ class Graph extends React.Component {
             time: 0,
             n: {
             },
-            ticks: 0
+            ticks: 0,
+            selecting: false,
+            moving: true,
+            shift: false
         };
 
         const { containerHeight, containerWidth } = props;
 
+        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        document.addEventListener('keyup', this.handleKeyUp.bind(this));
+
         this.network = {
+            fields: [],
+            selecting: this.state.selecting,
+            moving: this.state.moving,
+            shift: this.state.shift,
             graph: {
                 nodes: [],
                 links: [],
@@ -81,7 +93,7 @@ class Graph extends React.Component {
                     .on("mouseup", this.mouseup.bind(this))
                     .call(d3.drag()
                           .filter(() => {
-                              return d3.event.altKey;
+                              return this.moving;
                           })
                           .subject(this.dragsubject.bind(this))
                           .on("start", this.dragstarted.bind(this))
@@ -90,7 +102,7 @@ class Graph extends React.Component {
                          )
                     .call(d3.zoom()
                           .filter(() => {
-                              return d3.event.altKey;
+                              return this.moving;
                           })
                           .scaleExtent([1 / 2, 8])
                           .on("zoom", this.zoomed.bind(this))
@@ -151,7 +163,7 @@ class Graph extends React.Component {
                 // * don't draw out of the viewing context
                 //
 
-                const { canvas, context, graph, lines } = this;
+                const { canvas, context, graph, lines, fields } = this;
 
                 // todo(nl5887): is this slow?
                 const {width, height}  = canvas;
@@ -208,8 +220,10 @@ class Graph extends React.Component {
                 for (let j = 0; j < graph.nodes.length; j++) {
                     const d = graph.nodes[j];
                     const fontHeight = 6 + Math.floor(0.8*d.r);
-                    this.context.font=fontHeight + "px glyphicons halflings";
-                    this.context.fillText(d.icon, d.x - ((fontHeight - 0.5) /2), d.y + (fontHeight + 0.5)/2);
+                    this.context.font= "italic " + fontHeight + "px Roboto, Helvetica, Arial";
+                    this.context.textAlign = 'center';
+                    this.context.fillText(d.icon, d.x, d.y + (fontHeight + 0.5)/2);
+                    this.context.textAlign = 'left';
                 }
 
                 // todo(nl5887): we're having graph and react nodes here, go fix.
@@ -245,20 +259,49 @@ class Graph extends React.Component {
                     context.stroke();
                 }
 
-                if (graph.tooltip) {
+                // Display tooltip
+                if (graph.highlight_nodes && graph.highlight_nodes.length > 0 && !isEmpty(graph.highlight_nodes[0].fields)) {
+                    const tooltip = graph.highlight_nodes[0];
+
+                    const lineHeight = 18;
+                    const lines = Object.keys(tooltip.fields).length + 1;
+                    const rectHeight = lineHeight * lines + 10;
+                    const widths = [];
+
+                    forEach(tooltip.fields, (value, path) => {
+                        const {width} = context.measureText(value);
+                        widths.push(width);
+                    });
+
+                    const longestLine = widths.reduce((a, b) => Math.max(a, b)) + 10;
+
                     context.beginPath();
                     context.lineWidth="1";
                     context.strokeStyle="#cecece";
                     context.fillStyle="#fff";
 
-                    const {width} = context.measureText(graph.tooltip.node.name);
-                    context.rect(graph.tooltip.x,graph.tooltip.y-25,width,30);
+                    context.rect(tooltip.x + 15, tooltip.y - 25, longestLine, rectHeight);
                     context.stroke();
                     context.fill();
 
                     context.fillStyle = '#000'; //d.color[0];
+                    context.font = "bold 14px Arial";
+
+                    let textY = tooltip.y - 5;
+                    const textX = tooltip.x + 20;
+                    const fieldsText = 'Type: ' + tooltip.matchFields.join(', ');
+
+                    context.fillText(fieldsText, textX, textY);
+                    textY += lineHeight;
+
                     context.font = "14px Arial";
-                    context.fillText(graph.tooltip.node.name, graph.tooltip.x + 5, graph.tooltip.y - 5);
+
+                    forEach(tooltip.fields, (value, path) => {
+                        const text = path + ': ' + (value === null ? '' : value);
+
+                        context.fillText(text, textX, textY);
+                        textY += lineHeight;
+                    });
                 }
 
 
@@ -318,8 +361,12 @@ class Graph extends React.Component {
             mousedown: function () {
                 const { graph } = this;
 
-                if (d3.event.altKey) {
+                if (!this.selecting) {
                     return;
+                }
+
+                if (!this.shift) {
+                    this.dispatch(deselectNodes(graph.selectedNodes));
                 }
 
                 var x = graph.transform.invertX(d3.event.layerX),
@@ -343,7 +390,7 @@ class Graph extends React.Component {
             mouseup: function () {
                 const { graph } = this;
 
-                if (d3.event.altKey) {
+                if (!this.selecting) {
                     return;
                 }
 
@@ -376,10 +423,6 @@ class Graph extends React.Component {
             },
             mousemove: function (n) {
                 const { graph } = this;
-
-                if (d3.event.altKey) {
-                    return;
-                }
 
                 var x = graph.transform.invertX(d3.event.layerX),
                     y = graph.transform.invertY(d3.event.layerY);
@@ -470,11 +513,12 @@ class Graph extends React.Component {
 
     onHighlightNode(nodes) {
         // todo(nl5887): dispatch actual react (this.props.nodes, not graph nodes)
-        if (isEqual(nodes, this.props.nodes)) {
+        if (isEqual(nodes, this.props.highlight_nodes)) {
             return;
         }
 
         const { dispatch } = this.props;
+
         dispatch(highlightNodes(nodes));
     }
 
@@ -522,17 +566,82 @@ class Graph extends React.Component {
         return true;
     }
 
+    zoomIn() {
+        this.network.graph.transform.k = this.network.graph.transform.k * 1.1;
+    }
+
+    zoomOut() {
+        this.network.graph.transform.k = this.network.graph.transform.k * 0.9;
+    }
+
+    enableSelect() {
+        this.setState({
+            selecting: true,
+            moving: false
+        });
+
+        this.network.selecting = true;
+        this.network.moving = false;
+    }
+
+    enableMove() {
+        this.setState({
+            selecting: false,
+            moving: true
+        });
+
+        this.network.selecting = false;
+        this.network.moving = true;
+    }
+
+    handleKeyDown(event) {
+        const { selecting } = this.state;
+        const altKey = 18;
+        const shiftKey = 16;
+
+        if (event.keyCode === altKey) {
+            if (selecting) {
+                this.enableMove();
+            } else {
+                this.enableSelect();
+            }
+        } else if (event.keyCode === shiftKey) {
+            this.setState({shift: true});
+            this.network.shift = true;
+        }
+    }
+
+    handleKeyUp(event) {
+        const shiftKey = 16;
+
+        if (event.keyCode === shiftKey) {
+            this.setState({shift: false});
+            this.network.shift = false;
+        }
+    }
+
     render() {
-        const { containerHeight, containerWidth } = this.props;
+        const { containerHeight, containerWidth, itemsFetching } = this.props;
+        const { selecting, moving } = this.state;
 
         return (
+            <div>
                 <canvas
                     style={{fontFamily: 'glyphicons halflings'}}
+                    className={'graph ' + (selecting ? 'selecting' : 'moving')}
                     width={containerWidth}
                     height={containerHeight}
                     ref="canvas">
                         histogram
                 </canvas>
+                <ul className="mapControls">
+                    <li className={moving ? 'active': ''}><Icon name="ion-arrow-move" onClick={this.enableMove.bind(this)}/></li>
+                    <li className={selecting ? 'active': ''}><Icon name="ion-ios-crop" onClick={this.enableSelect.bind(this)}/></li>
+                    <li><Icon name="ion-ios-minus" onClick={this.zoomOut.bind(this)}/></li>
+                    <li><Icon name="ion-ios-plus" onClick={this.zoomIn.bind(this)}/></li>
+                </ul>
+                <Loader show={itemsFetching} classes={['graphLoader']}/>
+            </div>
         );
     }
 }
@@ -546,7 +655,8 @@ const select = (state, ownProps) => {
         queries: state.entries.searches,
         fields: state.entries.fields,
         items: state.entries.items,
-        highlight_nodes: state.entries.highlight_nodes
+        highlight_nodes: state.entries.highlight_nodes,
+        itemsFetching: state.entries.itemsFetching,
     };
 };
 

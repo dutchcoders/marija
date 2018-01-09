@@ -46,14 +46,16 @@ const (
 
 	InitialStateReceive = "INITIAL_STATE_RECEIVE"
 
+	ActionTypeSearchRequest   = "SEARCH_REQUEST"
+	ActionTypeSearchReceive   = "SEARCH_RECEIVE"
+	ActionTypeSearchCanceled  = "SEARCH_CANCELED"
+	ActionTypeSearchCompleted = "SEARCH_COMPLETED"
+
 	ActionTypeItemsRequest = "ITEMS_REQUEST"
 	ActionTypeItemsReceive = "ITEMS_RECEIVE"
 
-	ActionTypeIndicesRequest = "INDICES_REQUEST"
-	ActionTypeIndicesReceive = "INDICES_RECEIVE"
-
-	ActionTypeFieldsRequest = "FIELDS_REQUEST"
-	ActionTypeFieldsReceive = "FIELDS_RECEIVE"
+	ActionTypeGetFieldsRequest = "FIELDS_REQUEST"
+	ActionTypeGetFieldsReceive = "FIELDS_RECEIVE"
 )
 
 type connection struct {
@@ -61,9 +63,14 @@ type connection struct {
 	send   chan json.Marshaler
 	b      int
 	server *Server
+	closed bool
 }
 
 func (c *connection) Send(v json.Marshaler) {
+	if c.closed {
+		return
+	}
+
 	c.send <- v
 }
 
@@ -110,10 +117,11 @@ func (c *connection) readPump() {
 		}
 
 		switch r.Type {
-		case ActionTypeItemsRequest:
+		case ActionTypeSearchRequest:
 			r := SearchRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
 				log.Error("Error occured during search: %s", err.Error())
+
 				c.Send(&ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
@@ -126,7 +134,23 @@ func (c *connection) readPump() {
 					Message:   err.Error(),
 				})
 			}
-		case ActionTypeFieldsRequest:
+		case ActionTypeItemsRequest:
+			r := ItemsRequest{}
+			if err := json.Unmarshal(data, &r); err != nil {
+				log.Error("Error occured retrieving items: %s", err.Error())
+				c.Send(&ErrorMessage{
+					RequestID: r.RequestID,
+					Message:   err.Error(),
+				})
+			} else if err := c.Items(ctx, r); err != nil {
+				log.Error("Error occured retrieving items: %s", err.Error())
+
+				c.Send(&ErrorMessage{
+					RequestID: r.RequestID,
+					Message:   err.Error(),
+				})
+			}
+		case ActionTypeGetFieldsRequest:
 			r := GetFieldsRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
 				log.Error("Error occured during search: %s", err.Error())
@@ -163,6 +187,7 @@ func (c *connection) writePump() {
 		select {
 		case message, ok := <-c.send:
 			if !ok {
+				c.closed = true
 				c.write(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -201,9 +226,8 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	h.register <- c
 
 	log.Info("Connection upgraded.")
+	defer log.Info("Connection closed")
 
 	go c.writePump()
 	c.readPump()
-
-	log.Info("Connection closed")
 }

@@ -4,5 +4,6 @@ import "context"
 
 type Index interface {
 	Search(context.Context, SearchOptions) SearchResponse
-	Fields() ([]Field, error)
+	// Items(context.Context, ItemsOptions) ItemsResponse
+	GetFields(context.Context) ([]Field, error)
 }

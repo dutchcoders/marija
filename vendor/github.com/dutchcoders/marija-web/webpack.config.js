@@ -1,10 +1,9 @@
-var webpack = require('webpack');
-var path = require('path');
+const webpack = require('webpack');
+const path = require('path');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const dotenv = require('dotenv');
 
-var buildPath = path.resolve(__dirname, 'dist');
-var mainPath = path.resolve(__dirname, 'src', 'app', 'main.js');
-
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
+dotenv.config();
 
 module.exports = {
     entry: './src/app/main.js',
@@ -14,25 +13,17 @@ module.exports = {
         new ExtractTextPlugin('../dist/app.css'),
         new webpack.DefinePlugin({
             "process.env": { 
-                NODE_ENV: JSON.stringify(process.env.NODE_ENV || "development") 
+                NODE_ENV: JSON.stringify(process.env.NODE_ENV || "development"),
+                WEBSOCKET_URI: process.env.WEBSOCKET_URI ? JSON.stringify(process.env.WEBSOCKET_URI) : null
             }
         })
     ],
     resolve: {
-        modulesDirectories: ['node_modules', 'src'],
-        extension: ['', '.js', '.scss']
-    },
-    output: {
-        path: [__dirname, 'dist'].join(path.sep),
-        filename: 'bundle.js'
+        modules: ['node_modules', 'src'],
+        extensions: ['.js', '.scss']
     },
     module: {
         loaders: [
-            /*{
-                test: /\.js$/,
-                loaders: ["babel-loader", "eslint-loader"],
-                exclude: /node_modules/
-            },*/
             {
                 test: /.js?$/,
                 loader: 'babel-loader',
@@ -42,22 +33,26 @@ module.exports = {
                 }
             },
             {
-                test: /\.scss$/,
-                loader: ExtractTextPlugin.extract('style-loader', 'css-loader?sourceMap!sass-loader?outputStyle=expanded&sourceMap=true&sourceMapContents=true')
+                test: /\.(scss|css)$/,
+                loaders: ['style-loader','css-loader','sass-loader']
             },
             {
                 test: /\.(html)$/i,
-                loader: "file-loader?name=/[name].[ext]"
+                loader: 'file-loader?name=/[name].[ext]'
             },
             {
                 test: /\.(eot|svg|ttf|woff|woff2)([\?]?.*)$/,
-                loader: 'file?name=fonts/[name].[ext]'
+                loader: 'file-loader?name=fonts/[name].[ext]'
             },
             {
                 test: /\.(png|jpg|jpeg)$/,
-                loader: 'file?name=images/[name].[ext]'
+                loader: 'file-loader?name=images/[name].[ext]'
             }
         ]
-    }
+    },
+    node: {
+        fs: 'empty',
+        child_process: 'empty'
+    },
 };
 

@@ -1,10 +1,11 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -58,8 +59,8 @@ func TestTermVectorsWithId(t *testing.T) {
 		Type("tweet").
 		Id("1").
 		BodyJson(&tweet1).
-		Refresh(true).
-		Do()
+		Refresh("true").
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestTermVectorsWithId(t *testing.T) {
 		Fields(field).
 		FieldStatistics(true).
 		TermStatistics(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,9 +84,6 @@ func TestTermVectorsWithId(t *testing.T) {
 	}
 	if !result.Found {
 		t.Errorf("expected found to be %v; got: %v", true, result.Found)
-	}
-	if result.Took <= 0 {
-		t.Errorf("expected took in millis > 0; got: %v", result.Took)
 	}
 }
 
@@ -111,7 +109,7 @@ func TestTermVectorsWithDoc(t *testing.T) {
 		PerFieldAnalyzer(perFieldAnalyzer).
 		FieldStatistics(true).
 		TermStatistics(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,9 +118,6 @@ func TestTermVectorsWithDoc(t *testing.T) {
 	}
 	if !result.Found {
 		t.Errorf("expected found to be %v; got: %v", true, result.Found)
-	}
-	if result.Took <= 0 {
-		t.Errorf("expected took in millis > 0; got: %v", result.Took)
 	}
 }
 
@@ -149,7 +144,7 @@ func TestTermVectorsWithFilter(t *testing.T) {
 		FieldStatistics(true).
 		TermStatistics(true).
 		Filter(NewTermvectorsFilterSettings().MinTermFreq(1)).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,8 +153,5 @@ func TestTermVectorsWithFilter(t *testing.T) {
 	}
 	if !result.Found {
 		t.Errorf("expected found to be %v; got: %v", true, result.Found)
-	}
-	if result.Took <= 0 {
-		t.Errorf("expected took in millis > 0; got: %v", result.Took)
 	}
 }

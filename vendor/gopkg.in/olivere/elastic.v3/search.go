@@ -1,17 +1,16 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"gopkg.in/olivere/elastic.v3/uritemplates"
 )
@@ -22,11 +21,13 @@ type SearchService struct {
 	searchSource      *SearchSource
 	source            interface{}
 	pretty            bool
+	filterPath        []string
 	searchType        string
 	index             []string
 	typ               []string
 	routing           string
 	preference        string
+	requestCache      *bool
 	ignoreUnavailable *bool
 	allowNoIndices    *bool
 	expandWildcards   string
@@ -57,20 +58,22 @@ func (s *SearchService) Source(source interface{}) *SearchService {
 	return s
 }
 
+// FilterPath allows reducing the response, a mechanism known as
+// response filtering and described here:
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/common-options.html#common-options-response-filtering.
+func (s *SearchService) FilterPath(filterPath ...string) *SearchService {
+	s.filterPath = append(s.filterPath, filterPath...)
+	return s
+}
+
 // Index sets the names of the indices to use for search.
 func (s *SearchService) Index(index ...string) *SearchService {
-	if s.index == nil {
-		s.index = make([]string, 0)
-	}
 	s.index = append(s.index, index...)
 	return s
 }
 
 // Types adds search restrictions for a list of types.
 func (s *SearchService) Type(typ ...string) *SearchService {
-	if s.typ == nil {
-		s.typ = make([]string, 0)
-	}
 	s.typ = append(s.typ, typ...)
 	return s
 }
@@ -117,6 +120,13 @@ func (s *SearchService) Routing(routings ...string) *SearchService {
 // across different requests.
 func (s *SearchService) Preference(preference string) *SearchService {
 	s.preference = preference
+	return s
+}
+
+// RequestCache indicates whether the cache should be used for this
+// request or not, defaults to index level setting.
+func (s *SearchService) RequestCache(requestCache bool) *SearchService {
+	s.requestCache = &requestCache
 	return s
 }
 
@@ -305,6 +315,9 @@ func (s *SearchService) buildURL() (string, url.Values, error) {
 	if s.preference != "" {
 		params.Set("preference", s.preference)
 	}
+	if s.requestCache != nil {
+		params.Set("request_cache", fmt.Sprintf("%v", *s.requestCache))
+	}
 	if s.allowNoIndices != nil {
 		params.Set("allow_no_indices", fmt.Sprintf("%v", *s.allowNoIndices))
 	}
@@ -313,6 +326,9 @@ func (s *SearchService) buildURL() (string, url.Values, error) {
 	}
 	if s.ignoreUnavailable != nil {
 		params.Set("ignore_unavailable", fmt.Sprintf("%v", *s.ignoreUnavailable))
+	}
+	if len(s.filterPath) > 0 {
+		params.Set("filter_path", strings.Join(s.filterPath, ","))
 	}
 	return path, params, nil
 }
@@ -375,7 +391,8 @@ type SearchResult struct {
 	TerminatedEarly bool          `json:"terminated_early"` // true if the operation has terminated before e.g. an expiration was reached
 	//Error        string        `json:"error,omitempty"` // used in MultiSearch only
 	// TODO double-check that MultiGet now returns details error information
-	Error *ErrorDetails `json:"error,omitempty"` // only used in MultiGet
+	Error  *ErrorDetails `json:"error,omitempty"`   // only used in MultiGet
+	Shards *shardsInfo   `json:"_shards,omitempty"` // shard information
 }
 
 // TotalHits is a convenience function to return the number of hits for

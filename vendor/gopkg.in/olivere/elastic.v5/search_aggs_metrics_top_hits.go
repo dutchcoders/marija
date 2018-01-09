@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -49,8 +49,8 @@ func (a *TopHitsAggregation) Version(version bool) *TopHitsAggregation {
 	return a
 }
 
-func (a *TopHitsAggregation) NoFields() *TopHitsAggregation {
-	a.searchSource = a.searchSource.NoFields()
+func (a *TopHitsAggregation) NoStoredFields() *TopHitsAggregation {
+	a.searchSource = a.searchSource.NoStoredFields()
 	return a
 }
 
@@ -64,13 +64,13 @@ func (a *TopHitsAggregation) FetchSourceContext(fetchSourceContext *FetchSourceC
 	return a
 }
 
-func (a *TopHitsAggregation) FieldDataFields(fieldDataFields ...string) *TopHitsAggregation {
-	a.searchSource = a.searchSource.FieldDataFields(fieldDataFields...)
+func (a *TopHitsAggregation) DocvalueFields(docvalueFields ...string) *TopHitsAggregation {
+	a.searchSource = a.searchSource.DocvalueFields(docvalueFields...)
 	return a
 }
 
-func (a *TopHitsAggregation) FieldDataField(fieldDataField string) *TopHitsAggregation {
-	a.searchSource = a.searchSource.FieldDataField(fieldDataField)
+func (a *TopHitsAggregation) DocvalueField(docvalueField string) *TopHitsAggregation {
+	a.searchSource = a.searchSource.DocvalueField(docvalueField)
 	return a
 }
 

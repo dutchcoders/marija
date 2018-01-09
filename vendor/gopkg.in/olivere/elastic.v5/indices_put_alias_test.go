@@ -7,6 +7,8 @@ package elastic
 import (
 	"encoding/json"
 	"testing"
+
+	"golang.org/x/net/context"
 )
 
 const (
@@ -24,28 +26,28 @@ func TestAliasLifecycle(t *testing.T) {
 	tweet3 := tweet{User: "olivere", Message: "Another unrelated topic."}
 
 	// Add tweets to first index
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Add tweets to second index
-	_, err = client.Index().Index(testIndexName2).Type("tweet").Id("3").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName2).Type("tweet").Id("3").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Flush
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Flush().Index(testIndexName2).Do()
+	_, err = client.Flush().Index(testIndexName2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +57,7 @@ func TestAliasLifecycle(t *testing.T) {
 		Add(testIndexName, testAliasName).
 		Action(NewAliasAddAction(testAliasName).Index(testIndexName2)).
 		//Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +67,7 @@ func TestAliasLifecycle(t *testing.T) {
 
 	// Search should return all 3 tweets
 	matchAll := NewMatchAllQuery()
-	searchResult1, err := client.Search().Index(testAliasName).Query(matchAll).Do()
+	searchResult1, err := client.Search().Index(testAliasName).Query(matchAll).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +82,7 @@ func TestAliasLifecycle(t *testing.T) {
 	aliasRemove1, err := client.Alias().
 		Remove(testIndexName, testAliasName).
 		//Pretty(true).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +90,7 @@ func TestAliasLifecycle(t *testing.T) {
 		t.Errorf("expected AliasResult.Acknowledged %v; got %v", true, aliasRemove1.Acknowledged)
 	}
 
-	searchResult2, err := client.Search().Index(testAliasName).Query(matchAll).Do()
+	searchResult2, err := client.Search().Index(testAliasName).Query(matchAll).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

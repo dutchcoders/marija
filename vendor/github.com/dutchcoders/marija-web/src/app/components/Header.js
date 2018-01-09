@@ -6,29 +6,24 @@ import { Icon } from '../components/index';
 
 import { generateColour } from '../helpers/index';
 import { openPane } from '../utils/index';
+import Url from "../domain/Url";
 
 class Header extends Component {
-
-    constructor(props) {
-        super(props);
-
-    }
 
     getColour(str) {
         return generateColour(str);
     }
 
     onSearchSubmit(q, index) {
-        const { dispatch, activeIndices, queries } = this.props;
+        const { dispatch, activeIndices } = this.props;
 
-        const colors = ['#de79f2', '#917ef2', '#6d83f2', '#499df2', '#49d6f2', '#00ccaa', '#fac04b', '#bf8757', '#ff884d', '#ff7373', '#ff5252', '#6b8fb3'];
+        Url.addQueryParam('search', q);
 
         dispatch(requestItems({
             query: q,
             from: 0, 
             size: 500,
-            datasources: activeIndices,
-            color: colors[queries.length % colors.length]
+            datasources: activeIndices
         }));
     }
 
@@ -38,7 +33,7 @@ class Header extends Component {
     }
 
     render() {
-        const { connected, isFetching, total, indexes } = this.props;
+        const { connected, itemsFetching, total, indexes, fields, activeIndices } = this.props;
 
         let errors = null;
 
@@ -49,11 +44,12 @@ class Header extends Component {
         return (
             <header className="row">
                 <SearchBox
-                    isFetching={isFetching}
+                    itemsFetching={itemsFetching}
                     total={total}
                     onSubmit={(q, index) => this.onSearchSubmit(q, index)}
                     connected={connected}
                     indexes={indexes}
+                    enabled={fields.length > 0 && activeIndices.length > 0}
                 />
                 { errors }
             </header>
@@ -64,13 +60,14 @@ class Header extends Component {
 
 function select(state) {
     return {
-        isFetching: state.entries.isFetching,
+        itemsFetching: state.entries.itemsFetching,
         connected: state.entries.connected,
         errors: state.entries.errors,
         indexes: state.entries.indexes,
         activeIndices: state.indices.activeIndices,
         queries: state.entries.searches,
-        total: state.entries.total
+        total: state.entries.total,
+        fields: state.entries.fields
     };
 }
 

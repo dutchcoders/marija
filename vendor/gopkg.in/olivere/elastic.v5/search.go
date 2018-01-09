@@ -5,14 +5,15 @@
 package elastic
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // Search for documents in Elasticsearch.
@@ -232,25 +233,25 @@ func (s *SearchService) SortBy(sorter ...Sorter) *SearchService {
 	return s
 }
 
-// NoFields indicates that no fields should be loaded, resulting in only
+// NoStoredFields indicates that no stored fields should be loaded, resulting in only
 // id and type to be returned per field.
-func (s *SearchService) NoFields() *SearchService {
-	s.searchSource = s.searchSource.NoFields()
+func (s *SearchService) NoStoredFields() *SearchService {
+	s.searchSource = s.searchSource.NoStoredFields()
 	return s
 }
 
-// Field adds a single field to load and return (note, must be stored) as
+// StoredField adds a single field to load and return (note, must be stored) as
 // part of the search request. If none are specified, the source of the
 // document will be returned.
-func (s *SearchService) Field(fieldName string) *SearchService {
-	s.searchSource = s.searchSource.Field(fieldName)
+func (s *SearchService) StoredField(fieldName string) *SearchService {
+	s.searchSource = s.searchSource.StoredField(fieldName)
 	return s
 }
 
-// Fields	sets the fields to load and return as part of the search request.
+// StoredFields	sets the fields to load and return as part of the search request.
 // If none are specified, the source of the document will be returned.
-func (s *SearchService) Fields(fields ...string) *SearchService {
-	s.searchSource = s.searchSource.Fields(fields...)
+func (s *SearchService) StoredFields(fields ...string) *SearchService {
+	s.searchSource = s.searchSource.StoredFields(fields...)
 	return s
 }
 
@@ -339,12 +340,7 @@ func (s *SearchService) Validate() error {
 }
 
 // Do executes the search and returns a SearchResult.
-func (s *SearchService) Do() (*SearchResult, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the search and returns a SearchResult.
-func (s *SearchService) DoC(ctx context.Context) (*SearchResult, error) {
+func (s *SearchService) Do(ctx context.Context) (*SearchResult, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -367,7 +363,7 @@ func (s *SearchService) DoC(ctx context.Context) (*SearchResult, error) {
 		}
 		body = src
 	}
-	res, err := s.client.PerformRequestC(ctx, "POST", path, params, body)
+	res, err := s.client.PerformRequest(ctx, "POST", path, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -382,17 +378,15 @@ func (s *SearchService) DoC(ctx context.Context) (*SearchResult, error) {
 
 // SearchResult is the result of a search in Elasticsearch.
 type SearchResult struct {
-	TookInMillis    int64         `json:"took"`             // search time in milliseconds
-	ScrollId        string        `json:"_scroll_id"`       // only used with Scroll and Scan operations
-	Hits            *SearchHits   `json:"hits"`             // the actual search hits
-	Suggest         SearchSuggest `json:"suggest"`          // results from suggesters
-	Aggregations    Aggregations  `json:"aggregations"`     // results from aggregations
-	TimedOut        bool          `json:"timed_out"`        // true if the search timed out
-	TerminatedEarly bool          `json:"terminated_early"` // true if the operation has terminated before e.g. an expiration was reached
+	TookInMillis int64         `json:"took"`         // search time in milliseconds
+	ScrollId     string        `json:"_scroll_id"`   // only used with Scroll and Scan operations
+	Hits         *SearchHits   `json:"hits"`         // the actual search hits
+	Suggest      SearchSuggest `json:"suggest"`      // results from suggesters
+	Aggregations Aggregations  `json:"aggregations"` // results from aggregations
+	TimedOut     bool          `json:"timed_out"`    // true if the search timed out
 	//Error        string        `json:"error,omitempty"` // used in MultiSearch only
 	// TODO double-check that MultiGet now returns details error information
-	Error  *ErrorDetails `json:"error,omitempty"`   // only used in MultiGet
-	Shards *shardsInfo   `json:"_shards,omitempty"` // shard information
+	Error *ErrorDetails `json:"error,omitempty"` // only used in MultiGet
 }
 
 // TotalHits is a convenience function to return the number of hits for
@@ -435,15 +429,13 @@ type SearchHit struct {
 	Type           string                         `json:"_type"`           // type meta field
 	Id             string                         `json:"_id"`             // external or internal
 	Uid            string                         `json:"_uid"`            // uid meta field (see MapperService.java for all meta fields)
-	Timestamp      int64                          `json:"_timestamp"`      // timestamp meta field
-	TTL            int64                          `json:"_ttl"`            // ttl meta field
 	Routing        string                         `json:"_routing"`        // routing meta field
 	Parent         string                         `json:"_parent"`         // parent meta field
 	Version        *int64                         `json:"_version"`        // version number, when Version is set to true in SearchService
 	Sort           []interface{}                  `json:"sort"`            // sort information
 	Highlight      SearchHitHighlight             `json:"highlight"`       // highlighter information
 	Source         *json.RawMessage               `json:"_source"`         // stored document source
-	Fields         map[string]interface{}         `json:"fields"`          // returned fields
+	Fields         map[string]interface{}         `json:"fields"`          // returned (stored) fields
 	Explanation    *SearchExplanation             `json:"_explanation"`    // explains how the score was computed
 	MatchedQueries []string                       `json:"matched_queries"` // matched queries
 	InnerHits      map[string]*SearchHitInnerHits `json:"inner_hits"`      // inner hits with ES >= 1.5.0
@@ -484,12 +476,12 @@ type SearchSuggestion struct {
 // SearchSuggestionOption is an option of a SearchSuggestion.
 // See http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/search-suggesters.html.
 type SearchSuggestionOption struct {
-	Text         string      `json:"text"`
-	Highlighted  string      `json:"highlighted"`
-	Score        float64     `json:"score"`
-	CollateMatch bool        `json:"collate_match"`
-	Freq         int         `json:"freq"` // deprecated in 2.x
-	Payload      interface{} `json:"payload"`
+	Text   string           `json:"text"`
+	Index  string           `json:"_index"`
+	Type   string           `json:"_type"`
+	Id     string           `json:"_id"`
+	Score  float64          `json:"_score"`
+	Source *json.RawMessage `json:"_source"`
 }
 
 // Aggregations (see search_aggs.go)

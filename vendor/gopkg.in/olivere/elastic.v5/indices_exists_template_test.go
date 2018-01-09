@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -6,6 +6,8 @@ package elastic
 
 import (
 	"testing"
+
+	"golang.org/x/net/context"
 )
 
 func TestIndexExistsTemplate(t *testing.T) {
@@ -21,20 +23,19 @@ func TestIndexExistsTemplate(t *testing.T) {
 		"tweet":{
 			"properties":{
 				"tags":{
-					"type":"string"
+					"type":"keyword"
 				},
 				"location":{
 					"type":"geo_point"
 				},
 				"suggest_field":{
-					"type":"completion",
-					"payloads":true
+					"type":"completion"
 				}
 			}
 		}
 	}
 }`
-	putres, err := client.IndexPutTemplate("elastic-template").BodyString(tmpl).Do()
+	putres, err := client.IndexPutTemplate("elastic-template").BodyString(tmpl).Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error; got: %v", err)
 	}
@@ -46,10 +47,10 @@ func TestIndexExistsTemplate(t *testing.T) {
 	}
 
 	// Always delete template
-	defer client.IndexDeleteTemplate("elastic-template").Do()
+	defer client.IndexDeleteTemplate("elastic-template").Do(context.TODO())
 
 	// Check if template exists
-	exists, err := client.IndexTemplateExists("elastic-template").Do()
+	exists, err := client.IndexTemplateExists("elastic-template").Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error; got: %v", err)
 	}
@@ -58,7 +59,7 @@ func TestIndexExistsTemplate(t *testing.T) {
 	}
 
 	// Get template
-	getres, err := client.IndexGetTemplate("elastic-template").Do()
+	getres, err := client.IndexGetTemplate("elastic-template").Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error; got: %v", err)
 	}

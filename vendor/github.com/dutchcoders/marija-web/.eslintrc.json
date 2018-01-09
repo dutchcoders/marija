@@ -13,7 +13,8 @@
         "meteor": false,      // meteor global variables.
         "mongo": false,       // mongo global variables.
         "applescript": false, // applescript global variables.
-        "es6": true         // enable all ECMAScript 6 features except for modules.
+        "es6": true,          // enable all ECMAScript 6 features except for modules.
+        "jest/globals": true
     },
     "globals": {
         "goog": true
@@ -27,7 +28,8 @@
         }
     },
     "plugins": [
-        "react"
+        "react",
+        "jest"
     ],
     "rules": {
         // Possible Errors

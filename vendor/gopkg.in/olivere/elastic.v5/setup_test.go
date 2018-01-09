@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -10,6 +10,8 @@ import (
 	"math/rand"
 	"os"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 const (
@@ -23,24 +25,28 @@ const (
 	},
 	"mappings":{
 		"_default_": {
-			"_timestamp": {
-				"enabled": true
-			},
-			"_ttl": {
+			"_all": {
 				"enabled": true
 			}
 		},
 		"tweet":{
 			"properties":{
+				"user":{
+					"type":"keyword"
+				},
+				"message":{
+					"type":"text",
+					"store": true,
+					"fielddata": true
+				},
 				"tags":{
-					"type":"string"
+					"type":"keyword"
 				},
 				"location":{
 					"type":"geo_point"
 				},
 				"suggest_field":{
-					"type":"completion",
-					"payloads":true
+					"type":"completion"
 				}
 			}
 		},
@@ -52,11 +58,10 @@ const (
 		"order":{
 			"properties":{
 				"article":{
-					"type":"string"
+					"type":"text"
 				},
 				"manufacturer":{
-					"type":"string",
-					"index" : "not_analyzed"
+					"type":"keyword"
 				},
 				"price":{
 					"type":"float"
@@ -64,6 +69,22 @@ const (
 				"time":{
 					"type":"date",
 					"format": "YYYY-MM-dd"
+				}
+			}
+		},
+		"doctype":{
+			"properties":{
+				"message":{
+					"type":"text",
+					"store": true,
+					"fielddata": true
+				}
+			}
+		},
+		"queries":{
+			"properties": {
+				"query": {
+					"type":	"percolator"
 				}
 			}
 		}
@@ -108,6 +129,16 @@ func (o order) String() string {
 	return fmt.Sprintf("order{Article:%q,Manufacturer:%q,Price:%v,Time:%v}", o.Article, o.Manufacturer, o.Price, o.Time)
 }
 
+// doctype is required for Percolate tests.
+type doctype struct {
+	Message string `json:"message"`
+}
+
+// queries is required for Percolate tests.
+type queries struct {
+	Query string `json:"query"`
+}
+
 func isTravis() bool {
 	return os.Getenv("TRAVIS") != ""
 }
@@ -135,8 +166,8 @@ func setupTestClient(t logger, options ...ClientOptionFunc) (client *Client) {
 		t.Fatal(err)
 	}
 
-	client.DeleteIndex(testIndexName).Do()
-	client.DeleteIndex(testIndexName2).Do()
+	client.DeleteIndex(testIndexName).Do(context.TODO())
+	client.DeleteIndex(testIndexName2).Do(context.TODO())
 
 	return client
 }
@@ -145,7 +176,7 @@ func setupTestClientAndCreateIndex(t logger, options ...ClientOptionFunc) *Clien
 	client := setupTestClient(t, options...)
 
 	// Create index
-	createIndex, err := client.CreateIndex(testIndexName).Body(testMapping).Do()
+	createIndex, err := client.CreateIndex(testIndexName).Body(testMapping).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +185,7 @@ func setupTestClientAndCreateIndex(t logger, options ...ClientOptionFunc) *Clien
 	}
 
 	// Create second index
-	createIndex2, err := client.CreateIndex(testIndexName2).Body(testMapping).Do()
+	createIndex2, err := client.CreateIndex(testIndexName2).Body(testMapping).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,19 +209,19 @@ func setupTestClientAndCreateIndexAndAddDocs(t logger, options ...ClientOptionFu
 	tweet3 := tweet{User: "sandrae", Message: "Cycling is fun."}
 	comment1 := comment{User: "nico", Comment: "You bet."}
 
-	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do()
+	_, err := client.Index().Index(testIndexName).Type("tweet").Id("1").BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("2").BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").Routing("someroutingkey").BodyJson(&tweet3).Do()
+	_, err = client.Index().Index(testIndexName).Type("tweet").Id("3").Routing("someroutingkey").BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Index().Index(testIndexName).Type("comment").Id("1").Parent("3").BodyJson(&comment1).Do()
+	_, err = client.Index().Index(testIndexName).Type("comment").Id("1").Parent("3").BodyJson(&comment1).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,14 +238,14 @@ func setupTestClientAndCreateIndexAndAddDocs(t logger, options ...ClientOptionFu
 	orders = append(orders, order{Article: "T-Shirt", Manufacturer: "h&m", Price: 19, Time: "2015-06-18"})
 	for i, o := range orders {
 		id := fmt.Sprintf("%d", i)
-		_, err = client.Index().Index(testIndexName).Type("order").Id(id).BodyJson(&o).Do()
+		_, err = client.Index().Index(testIndexName).Type("order").Id(id).BodyJson(&o).Do(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	// Flush
-	_, err = client.Flush().Index(testIndexName).Do()
+	_, err = client.Flush().Index(testIndexName).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

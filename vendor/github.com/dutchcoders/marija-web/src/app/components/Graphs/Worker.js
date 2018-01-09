@@ -40,7 +40,7 @@ onmessage = function(event) {
 
         simulation = d3.forceSimulation()
             .stop()
-            .force("link", d3.forceLink().id(function (d) {
+            .force("link", d3.forceLink().distance(50).id(function (d) {
                 return d.id;
             }))
             .force("charge", d3.forceManyBody().strength(-100).distanceMax(500))
@@ -121,10 +121,6 @@ onmessage = function(event) {
             
             // todo(nl5887): why?
             that.links.push({source: link.source, target: link.target, color: link.color });
-        }
-
-        if (!newNodes) {
-            return;
         }
 
         simulation

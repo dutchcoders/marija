@@ -1,10 +1,14 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/net/context"
+)
 
 func TestAggsIntegrationAvgBucket(t *testing.T) {
 	//client := setupTestClientAndCreateIndexAndAddDocs(t, SetTraceLog(log.New(os.Stdout, "", log.LstdFlags)))
@@ -31,7 +35,7 @@ func TestAggsIntegrationAvgBucket(t *testing.T) {
 	builder = builder.Aggregation("sales_per_month", h)
 	builder = builder.Aggregation("avg_monthly_sales", NewAvgBucketAggregation().BucketsPath("sales_per_month>sales"))
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +88,7 @@ func TestAggsIntegrationDerivative(t *testing.T) {
 	h = h.SubAggregation("sales_deriv", NewDerivativeAggregation().BucketsPath("sales"))
 	builder = builder.Aggregation("sales_per_month", h)
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +229,7 @@ func TestAggsIntegrationMaxBucket(t *testing.T) {
 	builder = builder.Aggregation("sales_per_month", h)
 	builder = builder.Aggregation("max_monthly_sales", NewMaxBucketAggregation().BucketsPath("sales_per_month>sales"))
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +288,7 @@ func TestAggsIntegrationMinBucket(t *testing.T) {
 	builder = builder.Aggregation("sales_per_month", h)
 	builder = builder.Aggregation("min_monthly_sales", NewMinBucketAggregation().BucketsPath("sales_per_month>sales"))
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +347,7 @@ func TestAggsIntegrationSumBucket(t *testing.T) {
 	builder = builder.Aggregation("sales_per_month", h)
 	builder = builder.Aggregation("sum_monthly_sales", NewSumBucketAggregation().BucketsPath("sales_per_month>sales"))
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +400,7 @@ func TestAggsIntegrationMovAvg(t *testing.T) {
 	h = h.SubAggregation("the_movavg", NewMovAvgAggregation().BucketsPath("the_sum"))
 	builder = builder.Aggregation("my_date_histo", h)
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,7 +522,7 @@ func TestAggsIntegrationCumulativeSum(t *testing.T) {
 	h = h.SubAggregation("cumulative_sales", NewCumulativeSumAggregation().BucketsPath("sales"))
 	builder = builder.Aggregation("sales_per_month", h)
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -647,8 +651,7 @@ func TestAggsIntegrationCumulativeSum(t *testing.T) {
 }
 
 func TestAggsIntegrationBucketScript(t *testing.T) {
-	//client := setupTestClientAndCreateIndexAndAddDocs(t, SetTraceLog(log.New(os.Stdout, "", log.LstdFlags)))
-	client := setupTestClientAndCreateIndexAndAddDocs(t)
+	client := setupTestClientAndCreateIndexAndAddDocs(t) //, SetTraceLog(log.New(os.Stdout, "", log.LstdFlags)))
 
 	esversion, err := client.ElasticsearchVersion(DefaultURL)
 	if err != nil {
@@ -676,10 +679,10 @@ func TestAggsIntegrationBucketScript(t *testing.T) {
 			GapPolicy("insert_zeros").
 			AddBucketsPath("appleSales", "apple_sales>sales").
 			AddBucketsPath("totalSales", "total_sales").
-			Script(NewScript("appleSales / totalSales * 100")))
+			Script(NewScript("params.appleSales / params.totalSales * 100")))
 	builder = builder.Aggregation("sales_per_month", h)
 
-	res, err := builder.Do()
+	res, err := builder.Pretty(true).Do(context.TODO())
 	if err != nil {
 		t.Fatalf("%v (maybe scripting is disabled?)", err)
 	}
@@ -829,10 +832,10 @@ func TestAggsIntegrationBucketSelector(t *testing.T) {
 	h = h.SubAggregation("sales_bucket_filter",
 		NewBucketSelectorAggregation().
 			AddBucketsPath("totalSales", "total_sales").
-			Script(NewScript("totalSales <= 100")))
+			Script(NewScript("params.totalSales <= 100")))
 	builder = builder.Aggregation("sales_per_month", h)
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatalf("%v (maybe scripting is disabled?)", err)
 	}
@@ -889,7 +892,7 @@ func TestAggsIntegrationSerialDiff(t *testing.T) {
 	h = h.SubAggregation("the_diff", NewSerialDiffAggregation().BucketsPath("sales").Lag(1))
 	builder = builder.Aggregation("sales_per_month", h)
 
-	res, err := builder.Do()
+	res, err := builder.Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

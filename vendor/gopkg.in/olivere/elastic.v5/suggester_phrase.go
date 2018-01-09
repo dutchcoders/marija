@@ -1,11 +1,13 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
+// PhraseSuggester provides an API to access word alternatives
+// on a per token basis within a certain string distance.
 // For more details, see
-// http://www.elasticsearch.org/guide/reference/api/search/phrase-suggest/
+// https://www.elastic.co/guide/en/elasticsearch/reference/master/search-suggesters-phrase.html.
 type PhraseSuggester struct {
 	Suggester
 	name           string
@@ -33,12 +35,11 @@ type PhraseSuggester struct {
 	collatePrune            *bool
 }
 
-// Creates a new phrase suggester.
+// NewPhraseSuggester creates a new PhraseSuggester.
 func NewPhraseSuggester(name string) *PhraseSuggester {
 	return &PhraseSuggester{
-		name:           name,
-		contextQueries: make([]SuggesterContextQuery, 0),
-		collateParams:  make(map[string]interface{}),
+		name:          name,
+		collateParams: make(map[string]interface{}),
 	}
 }
 
@@ -173,7 +174,7 @@ func (q *PhraseSuggester) CollatePrune(collatePrune bool) *PhraseSuggester {
 	return q
 }
 
-// simplePhraseSuggesterRequest is necessary because the order in which
+// phraseSuggesterRequest is necessary because the order in which
 // the JSON elements are routed to Elasticsearch is relevant.
 // We got into trouble when using plain maps because the text element
 // needs to go before the simple_phrase element.
@@ -182,7 +183,7 @@ type phraseSuggesterRequest struct {
 	Phrase interface{} `json:"phrase"`
 }
 
-// Creates the source for the phrase suggester.
+// Source generates the source for the phrase suggester.
 func (q *PhraseSuggester) Source(includeName bool) (interface{}, error) {
 	ps := &phraseSuggesterRequest{}
 

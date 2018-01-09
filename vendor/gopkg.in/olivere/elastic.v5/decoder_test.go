@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"sync/atomic"
 	"testing"
+
+	"golang.org/x/net/context"
 )
 
 type decoder struct {
@@ -36,7 +38,7 @@ func TestDecoder(t *testing.T) {
 		Type("tweet").
 		Id("1").
 		BodyJson(&tweet).
-		Do()
+		Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

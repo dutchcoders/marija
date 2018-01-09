@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -17,7 +17,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	elastic "gopkg.in/olivere/elastic.v3"
+	"golang.org/x/net/context"
+
+	elastic "gopkg.in/olivere/elastic.v5"
 )
 
 type Tweet struct {
@@ -226,13 +228,15 @@ func (t *TestCase) setup() error {
 	}
 	t.client = client
 
+	ctx := context.Background()
+
 	// Use the IndexExists service to check if a specified index exists.
-	exists, err := t.client.IndexExists(t.index).Do()
+	exists, err := t.client.IndexExists(t.index).Do(ctx)
 	if err != nil {
 		return err
 	}
 	if exists {
-		deleteIndex, err := t.client.DeleteIndex(t.index).Do()
+		deleteIndex, err := t.client.DeleteIndex(t.index).Do(ctx)
 		if err != nil {
 			return err
 		}
@@ -242,7 +246,7 @@ func (t *TestCase) setup() error {
 	}
 
 	// Create a new index.
-	createIndex, err := t.client.CreateIndex(t.index).Do()
+	createIndex, err := t.client.CreateIndex(t.index).Do(ctx)
 	if err != nil {
 		return err
 	}
@@ -257,7 +261,7 @@ func (t *TestCase) setup() error {
 		Type("tweet").
 		Id("1").
 		BodyJson(tweet1).
-		Do()
+		Do(ctx)
 	if err != nil {
 		return err
 	}
@@ -269,13 +273,13 @@ func (t *TestCase) setup() error {
 		Type("tweet").
 		Id("2").
 		BodyString(tweet2).
-		Do()
+		Do(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Flush to make sure the documents got written.
-	_, err = t.client.Flush().Index(t.index).Do()
+	_, err = t.client.Flush().Index(t.index).Do(ctx)
 	if err != nil {
 		return err
 	}
@@ -284,6 +288,8 @@ func (t *TestCase) setup() error {
 }
 
 func (t *TestCase) search() {
+	ctx := context.Background()
+
 	// Loop forever to check for connection issues
 	for {
 		// Get tweet with specified ID
@@ -291,7 +297,7 @@ func (t *TestCase) search() {
 			Index(t.index).
 			Type("tweet").
 			Id("1").
-			Do()
+			Do(ctx)
 		if err != nil {
 			//failf("Get failed: %v", err)
 			t.runCh <- RunInfo{Success: false}
@@ -311,7 +317,7 @@ func (t *TestCase) search() {
 			Sort("user", true).                             // sort by "user" field, ascending
 			From(0).Size(10).                               // take documents 0-9
 			Pretty(true).                                   // pretty print request and response JSON
-			Do()                                            // execute
+			Do(ctx)                                         // execute
 		if err != nil {
 			//failf("Search failed: %v\n", err)
 			t.runCh <- RunInfo{Success: false}

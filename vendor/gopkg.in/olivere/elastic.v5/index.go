@@ -1,41 +1,42 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // IndexService adds or updates a typed JSON document in a specified index,
 // making it searchable.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-index_.html
 // for details.
 type IndexService struct {
-	client      *Client
-	pretty      bool
-	id          string
-	index       string
-	typ         string
-	parent      string
-	replication string
-	routing     string
-	timeout     string
-	timestamp   string
-	ttl         string
-	version     interface{}
-	opType      string
-	versionType string
-	refresh     *bool
-	consistency string
-	bodyJson    interface{}
-	bodyString  string
+	client              *Client
+	pretty              bool
+	id                  string
+	index               string
+	typ                 string
+	parent              string
+	routing             string
+	timeout             string
+	timestamp           string
+	ttl                 string
+	version             interface{}
+	opType              string
+	versionType         string
+	refresh             string
+	waitForActiveShards string
+	pipeline            string
+	bodyJson            interface{}
+	bodyString          string
 }
 
 // NewIndexService creates a new IndexService.
@@ -63,15 +64,25 @@ func (s *IndexService) Type(typ string) *IndexService {
 	return s
 }
 
-// Consistency is an explicit write consistency setting for the operation.
-func (s *IndexService) Consistency(consistency string) *IndexService {
-	s.consistency = consistency
+// WaitForActiveShards sets the number of shard copies that must be active
+// before proceeding with the index operation. Defaults to 1, meaning the
+// primary shard only. Set to `all` for all shard copies, otherwise set to
+// any non-negative value less than or equal to the total number of copies
+// for the shard (number of replicas + 1).
+func (s *IndexService) WaitForActiveShards(waitForActiveShards string) *IndexService {
+	s.waitForActiveShards = waitForActiveShards
+	return s
+}
+
+// Pipeline specifies the pipeline id to preprocess incoming documents with.
+func (s *IndexService) Pipeline(pipeline string) *IndexService {
+	s.pipeline = pipeline
 	return s
 }
 
 // Refresh the index after performing the operation.
-func (s *IndexService) Refresh(refresh bool) *IndexService {
-	s.refresh = &refresh
+func (s *IndexService) Refresh(refresh string) *IndexService {
+	s.refresh = refresh
 	return s
 }
 
@@ -102,12 +113,6 @@ func (s *IndexService) OpType(opType string) *IndexService {
 // Parent is the ID of the parent document.
 func (s *IndexService) Parent(parent string) *IndexService {
 	s.parent = parent
-	return s
-}
-
-// Replication is a specific replication type.
-func (s *IndexService) Replication(replication string) *IndexService {
-	s.replication = replication
 	return s
 }
 
@@ -184,11 +189,11 @@ func (s *IndexService) buildURL() (string, string, url.Values, error) {
 	if s.pretty {
 		params.Set("pretty", "1")
 	}
-	if s.consistency != "" {
-		params.Set("consistency", s.consistency)
+	if s.waitForActiveShards != "" {
+		params.Set("wait_for_active_shards", s.waitForActiveShards)
 	}
-	if s.refresh != nil {
-		params.Set("refresh", fmt.Sprintf("%v", *s.refresh))
+	if s.refresh != "" {
+		params.Set("refresh", s.refresh)
 	}
 	if s.opType != "" {
 		params.Set("op_type", s.opType)
@@ -196,8 +201,8 @@ func (s *IndexService) buildURL() (string, string, url.Values, error) {
 	if s.parent != "" {
 		params.Set("parent", s.parent)
 	}
-	if s.replication != "" {
-		params.Set("replication", s.replication)
+	if s.pipeline != "" {
+		params.Set("pipeline", s.pipeline)
 	}
 	if s.routing != "" {
 		params.Set("routing", s.routing)
@@ -239,12 +244,7 @@ func (s *IndexService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *IndexService) Do() (*IndexResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *IndexService) DoC(ctx context.Context) (*IndexResponse, error) {
+func (s *IndexService) Do(ctx context.Context) (*IndexResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -265,7 +265,7 @@ func (s *IndexService) DoC(ctx context.Context) (*IndexResponse, error) {
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, method, path, params, body)
+	res, err := s.client.PerformRequest(ctx, method, path, params, body)
 	if err != nil {
 		return nil, err
 	}

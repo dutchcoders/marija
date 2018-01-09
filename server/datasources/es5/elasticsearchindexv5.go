@@ -109,19 +109,6 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		defer close(itemCh)
 		defer close(errorCh)
 
-		log.Debug(so.Query)
-
-		/*
-			if i.cache == nil {
-				i.cache = cache.New(5*time.Minute, 10*time.Minute)
-			} else if v, ok := i.cache.Get(so.Query); !ok {
-			} else if items, ok := v.([]datasources.Item); !ok {
-			} else {
-				itemCh <- items
-				return
-			}
-		*/
-
 		hl := elastic.NewHighlight()
 		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 		hl = hl.PreTags("<em>").PostTags("</em>")
@@ -141,10 +128,11 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 
 		src := elastic.NewSearchSource().
 			Query(q).
-			FetchSource(true).
+			FetchSource(false).
 			Highlight(hl).
+			FetchSource(true).
 			From(so.From).
-			Size(100) // so.Size)
+			Size(100)
 
 		if len(scriptFields) > 0 {
 			src = src.ScriptFields(scriptFields...)
@@ -157,7 +145,7 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 
 			scroll := i.client.Scroll().Index(index).SearchSource(src)
 			for {
-				results, err := scroll.Do()
+				results, err := scroll.Do(ctx)
 				if err == io.EOF {
 					return
 				} else if err != nil {
@@ -235,6 +223,33 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 		}
 	}
 
+	return
+}
+
+func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
+	index := path.Base(i.URL.Path)
+
+	exists, err := i.client.IndexExists(index).Do(ctx)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("Index %s doesn't exist", index)
+	}
+
+	mapping, err := i.client.GetMapping().
+		Index(index).
+		Do(ctx)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, err.Error())
+	}
+
+	mapping = mapping[index].(map[string]interface{})
+	mapping = mapping["mappings"].(map[string]interface{})
+	for _, v := range mapping {
+		fields = append(fields, flatten("", v.(map[string]interface{}))...)
+	}
+
 	fields = append(fields, datasources.Field{
 		Path: "src-ip_dst-net_port",
 		Type: "string",
@@ -244,36 +259,6 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 		Path: "src-ip_dst-ip_port",
 		Type: "string",
 	})
-
-	return
-}
-
-func (i *Elasticsearch) Fields() (fields []datasources.Field, err error) {
-	index := path.Base(i.URL.Path)
-	log.Debug("Using index: ", path.Base(i.URL.Path))
-
-	mapping, err := i.client.GetMapping().
-		Index(index).
-		Do()
-
-	if err != nil {
-		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, err.Error())
-	}
-
-	for key := range mapping {
-		fmt.Printf(key)
-	}
-
-	if mapping[index] == nil {
-		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, "")
-	}
-
-	mapping = mapping[index].(map[string]interface{})
-	mapping = mapping["mappings"].(map[string]interface{})
-	for _, v := range mapping {
-		// types
-		fields = append(fields, flatten("", v.(map[string]interface{}))...)
-	}
 
 	return
 }

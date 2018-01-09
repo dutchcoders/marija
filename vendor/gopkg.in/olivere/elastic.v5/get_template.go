@@ -1,15 +1,16 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // GetTemplateService reads a search template.
@@ -82,12 +83,7 @@ func (s *GetTemplateService) Validate() error {
 }
 
 // Do executes the operation and returns the template.
-func (s *GetTemplateService) Do() (*GetTemplateResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation and returns the template.
-func (s *GetTemplateService) DoC(ctx context.Context) (*GetTemplateResponse, error) {
+func (s *GetTemplateService) Do(ctx context.Context) (*GetTemplateResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -100,7 +96,7 @@ func (s *GetTemplateService) DoC(ctx context.Context) (*GetTemplateResponse, err
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

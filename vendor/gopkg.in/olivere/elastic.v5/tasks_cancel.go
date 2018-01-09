@@ -5,12 +5,13 @@
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // TasksCancelService can cancel long-running tasks.
@@ -118,12 +119,7 @@ func (s *TasksCancelService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *TasksCancelService) Do() (*TasksListResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *TasksCancelService) DoC(ctx context.Context) (*TasksListResponse, error) {
+func (s *TasksCancelService) Do(ctx context.Context) (*TasksListResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -136,7 +132,7 @@ func (s *TasksCancelService) DoC(ctx context.Context) (*TasksListResponse, error
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "POST", path, params, nil)
+	res, err := s.client.PerformRequest(ctx, "POST", path, params, nil)
 	if err != nil {
 		return nil, err
 	}

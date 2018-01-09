@@ -41,6 +41,32 @@ type Request struct {
 	Type      string `json:"type"`
 }
 
+type Response struct {
+	RequestID string `json:"request-id"`
+}
+
+type ItemsRequest struct {
+	Request
+
+	Nodes []string `json:""`
+	From  int      `json:"from"`
+	Size  int      `json:"size"`
+}
+
+type ItemsResponse struct {
+	RequestID string
+}
+
+func (em *ItemsResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type      string `json:"type"`
+		RequestID string `json:"request-id"`
+	}{
+		Type:      ActionTypeItemsReceive,
+		RequestID: em.RequestID,
+	})
+}
+
 type SearchRequest struct {
 	Request
 
@@ -49,11 +75,40 @@ type SearchRequest struct {
 	Query       string   `json:"query"`
 }
 
+type SearchCanceled struct {
+	RequestID string
+}
+
+func (em *SearchCanceled) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type      string `json:"type"`
+		RequestID string `json:"request-id"`
+	}{
+		Type:      ActionTypeSearchCanceled,
+		RequestID: em.RequestID,
+	})
+}
+
+type SearchCompleted struct {
+	RequestID string
+}
+
+func (em *SearchCompleted) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type      string `json:"type"`
+		RequestID string `json:"request-id"`
+	}{
+		Type:      ActionTypeSearchCompleted,
+		RequestID: em.RequestID,
+	})
+}
+
 type SearchResponse struct {
 	RequestID string
-	Server    string
-	Query     string
-	Nodes     []datasources.Item
+
+	Server string
+	Query  string
+	Nodes  []datasources.Item
 }
 
 func (em *SearchResponse) MarshalJSON() ([]byte, error) {
@@ -64,7 +119,7 @@ func (em *SearchResponse) MarshalJSON() ([]byte, error) {
 		Query     string             `json:"query"`
 		Nodes     []datasources.Item `json:"results"`
 	}{
-		Type:      ActionTypeItemsReceive,
+		Type:      ActionTypeSearchReceive,
 		RequestID: em.RequestID,
 		Server:    em.Server,
 		Query:     em.Query,
@@ -80,9 +135,10 @@ type GetFieldsRequest struct {
 
 type GetFieldsResponse struct {
 	RequestID string
-	Server    string
-	Index     string
-	Fields    interface{}
+
+	Server string
+	Index  string
+	Fields interface{}
 }
 
 func (em *GetFieldsResponse) MarshalJSON() ([]byte, error) {
@@ -93,7 +149,7 @@ func (em *GetFieldsResponse) MarshalJSON() ([]byte, error) {
 		Index     string      `json:"index,omitempty"`
 		Fields    interface{} `json:"fields"`
 	}{
-		Type:      ActionTypeFieldsReceive,
+		Type:      ActionTypeGetFieldsReceive,
 		RequestID: em.RequestID,
 		Server:    em.Server,
 		Index:     em.Index,

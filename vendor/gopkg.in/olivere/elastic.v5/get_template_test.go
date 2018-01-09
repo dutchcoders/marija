@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -6,6 +6,8 @@ package elastic
 
 import (
 	"testing"
+
+	"golang.org/x/net/context"
 )
 
 func TestGetPutDeleteTemplate(t *testing.T) {
@@ -23,22 +25,22 @@ func TestGetPutDeleteTemplate(t *testing.T) {
 		"my_size" : 5
 	}
 }`
-	putres, err := client.PutTemplate().Id("elastic-template").BodyString(tmpl).Do()
+	putres, err := client.PutTemplate().Id("elastic-template").BodyString(tmpl).Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error; got: %v", err)
 	}
 	if putres == nil {
 		t.Fatalf("expected response; got: %v", putres)
 	}
-	if !putres.Created {
-		t.Fatalf("expected template to be created; got: %v", putres.Created)
+	if !putres.Acknowledged {
+		t.Fatalf("expected template creation to be acknowledged; got: %v", putres.Acknowledged)
 	}
 
 	// Always delete template
-	defer client.DeleteTemplate().Id("elastic-template").Do()
+	defer client.DeleteTemplate().Id("elastic-template").Do(context.TODO())
 
 	// Get template
-	getres, err := client.GetTemplate().Id("elastic-template").Do()
+	getres, err := client.GetTemplate().Id("elastic-template").Do(context.TODO())
 	if err != nil {
 		t.Fatalf("expected no error; got: %v", err)
 	}

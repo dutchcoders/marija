@@ -1,17 +1,18 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // NodesInfoService allows to retrieve one or more or all of the
@@ -100,12 +101,7 @@ func (s *NodesInfoService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *NodesInfoService) Do() (*NodesInfoResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *NodesInfoService) DoC(ctx context.Context) (*NodesInfoResponse, error) {
+func (s *NodesInfoService) Do(ctx context.Context) (*NodesInfoResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -118,7 +114,7 @@ func (s *NodesInfoService) DoC(ctx context.Context) (*NodesInfoResponse, error) 
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "GET", path, params, nil)
+	res, err := s.client.PerformRequest(ctx, "GET", path, params, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +164,7 @@ type NodesInfoNode struct {
 	Process *NodesInfoNodeProcess `json:"process"`
 
 	// JVM information, e.g. VM version.
-	JVM *NodesInfoNodeJVM `json:"jvm"`
+	JVM *NodesInfoNodeProcess `json:"jvm"`
 
 	// ThreadPool information.
 	ThreadPool *NodesInfoNodeThreadPool `json:"thread_pool"`

@@ -72,9 +72,13 @@ class TableView extends React.Component {
             return (value.id == other.id);
         });
     }
-    componentWillReceiveProps(nextProps) {
-        this.setState({items: this.getSelectedItems()});
+
+    componentDidUpdate(prevProps) {
+        if (prevProps.selectedNodes !== this.props.selectedNodes) {
+            this.setState({items: this.getSelectedItems()});
+        }
     }
+
     renderBody() {
         const { columns, searches, dispatch} = this.props;
         const { items } = this.state;

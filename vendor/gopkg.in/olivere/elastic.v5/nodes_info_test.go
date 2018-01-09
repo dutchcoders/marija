@@ -1,10 +1,14 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
-import "testing"
+import (
+	"testing"
+
+	"golang.org/x/net/context"
+)
 
 func TestNodesInfo(t *testing.T) {
 	client, err := NewClient()
@@ -12,7 +16,7 @@ func TestNodesInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	info, err := client.NodesInfo().Do()
+	info, err := client.NodesInfo().Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}

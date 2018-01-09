@@ -1,4 +1,4 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
@@ -40,13 +40,15 @@ func (r *Request) SetBody(body interface{}, gzipCompress bool) error {
 	case string:
 		if gzipCompress {
 			return r.setBodyGzip(b)
+		} else {
+			return r.setBodyString(b)
 		}
-		return r.setBodyString(b)
 	default:
 		if gzipCompress {
 			return r.setBodyGzip(body)
+		} else {
+			return r.setBodyJson(body)
 		}
-		return r.setBodyJson(body)
 	}
 }
 

@@ -9,10 +9,14 @@ import {  SEARCH_DELETE, ITEMS_RECEIVE, ITEMS_REQUEST } from '../modules/search/
 import {  TABLE_COLUMN_ADD, TABLE_COLUMN_REMOVE, INDEX_ADD, INDEX_DELETE, FIELD_ADD, FIELD_DELETE, DATE_FIELD_ADD, DATE_FIELD_DELETE, NORMALIZATION_ADD, NORMALIZATION_DELETE, INITIAL_STATE_RECEIVE } from '../modules/data/index';
 
 import { normalize, fieldLocator } from '../helpers/index';
+import getNodesAndLinks from "../helpers/getNodesAndLinks";
+import removeNodesAndLinks from "../helpers/removeNodesAndLinks";
+import getHighlightItem from "../helpers/getHighlightItem";
 
 
 export const defaultState = {
     isFetching: false,
+    itemsFetching: false,
     noMoreHits: false,
     didInvalidate: false,
     connected: false,
@@ -80,18 +84,22 @@ export default function entries(state = defaultState, action) {
                 links: links
             });
         case SEARCH_DELETE:
-            var searches = without(state.searches, action.search);
-
+            const searches = without(state.searches, action.search);
             var items = concat(state.items);
-            remove(items, (p) => {
-                return (p.q === action.search.q);
-            });
+
+            items = items.filter(item => item.query !== action.search.q);
 
             // todo(nl5887): remove related nodes and links
+            const result = removeNodesAndLinks(state.nodes, state.links, action.search.q);
 
             return Object.assign({}, state, {
                 searches: searches,
-                items: items
+                items: items,
+                nodes: result.nodes,
+                links: result.links,
+                selectedNodes: [],
+                highlight_nodes: [],
+                node: []
             });
         case TABLE_COLUMN_ADD:
             return Object.assign({}, state, {
@@ -102,8 +110,32 @@ export default function entries(state = defaultState, action) {
                 columns: without(state.columns, action.field)
             });
         case FIELD_ADD:
+            const existing = state.fields.find(field => field.path === action.path);
+
+            if (existing) {
+                // Field was already in store, don't add duplicates
+                return state;
+            }
+
+            const firstChar = action.path.charAt(0).toUpperCase();
+            const fieldsWithSameChar = state.fields.filter(field => field.icon.indexOf(firstChar) === 0);
+            let icon;
+
+            if (fieldsWithSameChar.length === 0) {
+                icon = firstChar;
+            } else {
+                // Append a number to the icon if multiple fields share the same
+                // first character
+                icon = firstChar + (fieldsWithSameChar.length + 1);
+            }
+
+            let newField = {
+                path: action.path,
+                icon: icon
+            };
+
             return Object.assign({}, state, {
-                fields: concat(state.fields, action.field)
+                fields: concat(state.fields, newField)
             });
         case FIELD_DELETE:
             return Object.assign({}, state, {
@@ -128,12 +160,30 @@ export default function entries(state = defaultState, action) {
                 date_fields: without(state.date_fields, action.field)
             });
         case NODES_HIGHLIGHT:
+            const highlightItems = [];
+
+            action.highlight_nodes.forEach(node => {
+                const item = Object.assign({}, state.items.find(item => item.id === node.items[0]));
+                const highlightItem = getHighlightItem(item, node, state.fields);
+
+                highlightItems.push(highlightItem);
+            });
+
             return Object.assign({}, state, {
-                highlight_nodes: action.highlight_nodes
+                highlight_nodes: highlightItems
             });
         case NODES_SELECT:
+            const newNodes = [];
+
+            action.nodes.forEach(node => {
+                // First check if it's already selected, don't add duplicates
+                if (state.node.indexOf(node) === -1) {
+                    newNodes.push(node);
+                }
+            });
+
             return Object.assign({}, state, {
-                node: concat(action.nodes)
+                node: concat(state.node, newNodes)
             });
         case NODES_DESELECT:
             return Object.assign({}, state, {
@@ -173,179 +223,74 @@ export default function entries(state = defaultState, action) {
 
             let from = search.items.length || 0;
 
-            let message = {datasources: action.datasources, query: action.query, from: from, size: action.size, color: action.color};
+            let message = {
+                datasources: action.datasources,
+                query: action.query,
+                from: from,
+                size: action.size,
+                // todo: remove this, but requires a backend change. now the server wont respond if we dont send a color
+                color: '#de79f2'
+            };
             Socket.ws.postMessage(message);
 
             return Object.assign({}, state, {
                 isFetching: true,
+                itemsFetching: true,
                 didInvalidate: false
             });
         }
         case ITEMS_RECEIVE: {
-            var searches = concat(state.searches, []);
+            const searches = concat(state.searches, []);
+            const items = action.items.results === null ? [] : action.items.results;
 
             // should we update existing search, or add new, do we still need items?
             let search = find(state.searches, (o) => o.q == action.items.query);
             if (search) {
                 search.items = concat(search.items, action.items.results);
             } else {
-                searches.push({
+                const colors = [
+                    '#de79f2',
+                    '#917ef2',
+                    '#499df2',
+                    '#49d6f2',
+                    '#00ccaa',
+                    '#fac04b',
+                    '#bf8757',
+                    '#ff884d',
+                    '#ff7373',
+                    '#ff5252',
+                    '#6b8fb3'
+                ];
+                // Sequentially uses the available colors, and starts again from the start when we exceed the amount of colors
+                const colorIndex = (state.searches.length % colors.length + colors.length) % colors.length;
+                const color = colors[colorIndex];
+
+                search = {
                     q: action.items.query,
-                    color: action.items.color,
+                    color: color,
                     total: action.items.total,
-                    items: action.items.results
-                });
+                    items: items
+                };
+
+                searches.push(search);
             }
 
-            // let search = find(searches, (o) => return o.q == action.items.query) {
-
-            const { normalizations } = state;
-
+            // Save per item for which query we received it (so we can keep track of where data came from)
+            items.forEach(item => {
+                item.query = search.q;
+            });
 
             // todo(nl5887): should we start a webworker here, the webworker can have its own permanent cache?
 
             // update nodes and links
-            var items = action.items.results;
-
-            var nodes = concat(state.nodes, []);
-            var links = concat(state.links, []);
-
-            let nodeCache = {};
-            for (let node of nodes) {
-                nodeCache[node.id] = node;
-            }
-
-            let linkCache = {};
-            for (let link of links) {
-                linkCache[link.source + link.target] = link;
-            }
-
-            const fields = state.fields;
-            forEach(items, (d, i) => {
-                forEach(fields, (source) => {
-                    let sourceValue = fieldLocator(d.fields, source.path);
-                    if (sourceValue === null) {
-                        return;
-                    }
-
-                    if (!Array.isArray(sourceValue)) {
-                        sourceValue = [sourceValue];
-                    }
-
-                    for (let sv of sourceValue) {
-                        switch (typeof sv) {
-                        case "boolean":
-                            sv = (sv?"true":"false");
-                        }
-
-                        const normalizedSourceValue = normalize(normalizations, sv);
-                        if (normalizedSourceValue === "") {
-                            continue;
-                        }
-
-                        let n = nodeCache[normalizedSourceValue];
-                        if (n) {
-                            if (n.items.indexOf(d.id) == -1){
-                                n.items.push(d.id);
-                            }
-
-                            if (n.fields.indexOf(source.path) == -1){
-                                n.fields.push(source.path);
-                            }
-
-                            n.queries.push(action.items.query);
-                        } else {
-                            let n = {
-                                id: normalizedSourceValue,
-                                queries: [action.items.query],
-                                items: [d.id],
-                                name: normalizedSourceValue,
-                                description: '',
-                                icon: source.icon,
-                                fields: [source.path],
-                            };
-
-                            nodeCache[n.id] = n;
-                            nodes.push(n);
-                        }
-
-                        forEach(fields, (target) => {
-                            let targetValue = fieldLocator(d.fields, target.path);
-                            if (targetValue === null) {
-                                return;
-                            }
-
-                            if (!Array.isArray(targetValue)) {
-                                targetValue = [targetValue];
-                            }
-
-                            // todo(nl5887): issue with normalizing is if we want to use it as name as well.
-                            // for example we don't want to have the first name only as name.
-                            //
-                            // we need to keep track of the fields the value is in as well.
-                            for (let tv of targetValue) {
-                                switch (typeof tv) {
-                                case "boolean":
-                                    tv = (tv?"true":"false");
-                                }
-
-                                const normalizedTargetValue = normalize(normalizations, tv);
-                                if (normalizedTargetValue === "") {
-                                    continue;
-                                }
-
-                                let n = nodeCache[normalizedTargetValue];
-                                if (n) {
-                                    if (n.items.indexOf(d.id) == -1){
-                                        n.items.push(d.id);
-                                    }
-
-                                    if (n.fields.indexOf(target.path) == -1){
-                                        n.fields.push(target.path);
-                                    }
-
-                                    // should add counter instead of thousands same query being added
-                                    n.queries.push(action.items.query);
-                                } else {
-                                    let n = {
-                                        id: normalizedTargetValue,
-                                        queries: [action.items.query],
-                                        items: [d.id],
-                                        name: normalizedTargetValue,
-                                        description: '',
-                                        icon: [target.icon],
-                                        fields: [target.path],
-                                    };
-
-                                    nodeCache[n.id] = n;
-                                    nodes.push(n);
-                                }
-
-                                if (sourceValue.length > 1) {
-                                    // we don't want all individual arrays to be linked together
-                                    // those individual arrays being linked are (I assume) irrelevant
-                                    // otherwise this needs to be a configuration option
-                                    continue;
-                                }
-
-                                if (linkCache[normalizedSourceValue + normalizedTargetValue]) {
-                                    // link already exists
-                                    continue;
-                                }
-
-                                const link = {
-                                    source: normalizedSourceValue,
-                                    target: normalizedTargetValue,
-                                    color: '#ccc'
-                                };
-
-                                links.push(link);
-                                linkCache[link.source + link.target] = link;
-                            }
-                        });
-                    }
-                });
-            });
+            const {nodes, links} = getNodesAndLinks(
+                state.nodes,
+                state.links,
+                items,
+                state.fields,
+                search,
+                state.normalizations
+            );
 
             return Object.assign({}, state, {
                 errors: null,
@@ -354,6 +299,7 @@ export default function entries(state = defaultState, action) {
                 items: concat(state.items, items),
                 searches: searches,
                 isFetching: false,
+                itemsFetching: false,
                 didInvalidate: false
             });
         }

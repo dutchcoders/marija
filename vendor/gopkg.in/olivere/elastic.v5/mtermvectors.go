@@ -5,13 +5,14 @@
 package elastic
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"gopkg.in/olivere/elastic.v3/uritemplates"
+	"golang.org/x/net/context"
+
+	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
 // MultiTermvectorService returns information and statistics on terms in the
@@ -255,12 +256,7 @@ func (s *MultiTermvectorService) Validate() error {
 }
 
 // Do executes the operation.
-func (s *MultiTermvectorService) Do() (*MultiTermvectorResponse, error) {
-	return s.DoC(nil)
-}
-
-// DoC executes the operation.
-func (s *MultiTermvectorService) DoC(ctx context.Context) (*MultiTermvectorResponse, error) {
+func (s *MultiTermvectorService) Do(ctx context.Context) (*MultiTermvectorResponse, error) {
 	// Check pre-conditions
 	if err := s.Validate(); err != nil {
 		return nil, err
@@ -283,7 +279,7 @@ func (s *MultiTermvectorService) DoC(ctx context.Context) (*MultiTermvectorRespo
 	}
 
 	// Get HTTP response
-	res, err := s.client.PerformRequestC(ctx, "GET", path, params, body)
+	res, err := s.client.PerformRequest(ctx, "GET", path, params, body)
 	if err != nil {
 		return nil, err
 	}

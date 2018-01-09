@@ -1,14 +1,16 @@
-// Copyright 2012-2015 Oliver Eilhard. All rights reserved.
+// Copyright 2012-present Oliver Eilhard. All rights reserved.
 // Use of this source code is governed by a MIT-license.
 // See http://olivere.mit-license.org/license.txt for details.
 
 package elastic
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
+
+	"golang.org/x/net/context"
+	"golang.org/x/net/context/ctxhttp"
 )
 
 // PingService checks if an Elasticsearch server on a given URL is alive.
@@ -72,13 +74,7 @@ func (s *PingService) Pretty(pretty bool) *PingService {
 
 // Do returns the PingResult, the HTTP status code of the Elasticsearch
 // server, and an error.
-func (s *PingService) Do() (*PingResult, int, error) {
-	return s.DoC(nil)
-}
-
-// DoC returns the PingResult, the HTTP status code of the Elasticsearch
-// server, and an error.
-func (s *PingService) DoC(ctx context.Context) (*PingResult, int, error) {
+func (s *PingService) Do(ctx context.Context) (*PingResult, int, error) {
 	s.client.mu.RLock()
 	basicAuth := s.client.basicAuth
 	basicAuthUsername := s.client.basicAuthUsername
@@ -115,12 +111,7 @@ func (s *PingService) DoC(ctx context.Context) (*PingResult, int, error) {
 		req.SetBasicAuth(basicAuthUsername, basicAuthPassword)
 	}
 
-	var res *http.Response
-	if ctx == nil {
-		res, err = s.client.c.Do((*http.Request)(req))
-	} else {
-		res, err = s.client.c.Do((*http.Request)(req).WithContext(ctx))
-	}
+	res, err := ctxhttp.Do(ctx, s.client.c, (*http.Request)(req))
 	if err != nil {
 		return nil, 0, err
 	}

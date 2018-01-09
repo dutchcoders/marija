@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
 	"reflect"
@@ -20,9 +21,10 @@ import (
 )
 
 var cstUpgrader = Upgrader{
-	Subprotocols:    []string{"p0", "p1"},
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	Subprotocols:      []string{"p0", "p1"},
+	ReadBufferSize:    1024,
+	WriteBufferSize:   1024,
+	EnableCompression: true,
 	Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
 		http.Error(w, reason.Error(), status)
 	},
@@ -224,6 +226,54 @@ func TestDial(t *testing.T) {
 		t.Fatalf("Dial: %v", err)
 	}
 	defer ws.Close()
+	sendRecv(t, ws)
+}
+
+func TestDialCookieJar(t *testing.T) {
+	s := newServer(t)
+	defer s.Close()
+
+	jar, _ := cookiejar.New(nil)
+	d := cstDialer
+	d.Jar = jar
+
+	u, _ := parseURL(s.URL)
+
+	switch u.Scheme {
+	case "ws":
+		u.Scheme = "http"
+	case "wss":
+		u.Scheme = "https"
+	}
+
+	cookies := []*http.Cookie{&http.Cookie{Name: "gorilla", Value: "ws", Path: "/"}}
+	d.Jar.SetCookies(u, cookies)
+
+	ws, _, err := d.Dial(s.URL, nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer ws.Close()
+
+	var gorilla string
+	var sessionID string
+	for _, c := range d.Jar.Cookies(u) {
+		if c.Name == "gorilla" {
+			gorilla = c.Value
+		}
+
+		if c.Name == "sessionID" {
+			sessionID = c.Value
+		}
+	}
+	if gorilla != "ws" {
+		t.Error("Cookie not present in jar.")
+	}
+
+	if sessionID != "1234" {
+		t.Error("Set-Cookie not received from the server.")
+	}
+
 	sendRecv(t, ws)
 }
 
@@ -444,5 +494,19 @@ func TestHostHeader(t *testing.T) {
 		t.Fatalf("gotHost = %q, want \"testhost\"", gotHost)
 	}
 
+	sendRecv(t, ws)
+}
+
+func TestDialCompression(t *testing.T) {
+	s := newServer(t)
+	defer s.Close()
+
+	dialer := cstDialer
+	dialer.EnableCompression = true
+	ws, _, err := dialer.Dial(s.URL, nil)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer ws.Close()
 	sendRecv(t, ws)
 }

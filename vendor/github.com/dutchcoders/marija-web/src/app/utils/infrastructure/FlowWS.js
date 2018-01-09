@@ -9,9 +9,12 @@ export default class FlowWS {
 
         const websocket = new Websocket(url);
 
-        websocket.onopen = function (event) {
-            storeDispatcher(authConnected({connected: true, errors: null}));
-        };
+        this.opened = new Promise(resolve => {
+            websocket.onopen = function (event) {
+                storeDispatcher(authConnected({connected: true, errors: null}));
+                resolve();
+            };
+        });
 
         websocket.onclose = function (event) {
             var reason = "";
@@ -59,12 +62,14 @@ export default class FlowWS {
     }
 
     postMessage(data, type = ITEMS_REQUEST) {
-        this.websocket.send(
-            JSON.stringify({
-                type: type,
-                ...data
-            })
-        );
+        this.opened.then(() => {
+            this.websocket.send(
+                JSON.stringify({
+                    type: type,
+                    ...data
+                })
+            );
+        });
     }
 
     close() {

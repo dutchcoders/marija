@@ -6,20 +6,17 @@ package elastic
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/fortytw2/leaktest"
+	"golang.org/x/net/context"
 )
 
 func findConn(s string, slice ...*conn) (int, bool) {
@@ -190,7 +187,7 @@ func TestClientSniffDisabled(t *testing.T) {
 	}
 	// Make two requests, so that both connections are being used
 	for i := 0; i < len(client.conns); i++ {
-		client.Flush().Do()
+		client.Flush().Do(context.TODO())
 	}
 	// The first connection (127.0.0.1:9200) should now be okay.
 	if i, found := findConn("http://127.0.0.1:9200", client.conns...); !found {
@@ -222,7 +219,7 @@ func TestClientWillMarkConnectionsAsAliveWhenAllAreDead(t *testing.T) {
 	}
 
 	// Make a request, so that the connections is marked as dead.
-	client.Flush().Do()
+	client.Flush().Do(context.TODO())
 
 	// The connection should now be marked as dead.
 	if i, found := findConn("http://127.0.0.1:9201", client.conns...); !found {
@@ -234,7 +231,7 @@ func TestClientWillMarkConnectionsAsAliveWhenAllAreDead(t *testing.T) {
 	}
 
 	// Now send another request and the connection should be marked as alive again.
-	client.Flush().Do()
+	client.Flush().Do(context.TODO())
 
 	if i, found := findConn("http://127.0.0.1:9201", client.conns...); !found {
 		t.Fatalf("expected connection to %q to be found", "http://127.0.0.1:9201")
@@ -264,74 +261,6 @@ func TestClientHealthcheckStartupTimeout(t *testing.T) {
 	}
 	if duration < 5*time.Second {
 		t.Fatalf("expected a timeout in more than 5 seconds; got: %v", duration)
-	}
-}
-
-func TestClientHealthcheckTimeoutLeak(t *testing.T) {
-	// This test test checks if healthcheck requests are canceled
-	// after timeout.
-	// It contains couple of hacks which won't be needed once we
-	// stop supporting Go1.7.
-	// On Go1.7 it uses server side effects to monitor if connection
-	// was closed,
-	// and on Go 1.8+ we're additionally honestly monitoring routine
-	// leaks via leaktest.
-	mux := http.NewServeMux()
-
-	var reqDone bool
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		cn, ok := w.(http.CloseNotifier)
-		if !ok {
-			t.Fatalf("Writer is not CloseNotifier, but %v", reflect.TypeOf(w).Name())
-		}
-		<-cn.CloseNotify()
-		reqDone = true
-	})
-
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("Couldn't setup listener: %v", err)
-	}
-	addr := lis.Addr().String()
-
-	srv := &http.Server{
-		Handler: mux,
-	}
-	go srv.Serve(lis)
-
-	cli := &Client{
-		c: &http.Client{},
-		conns: []*conn{
-			&conn{
-				url: "http://" + addr + "/",
-			},
-		},
-	}
-
-	type closer interface {
-		Shutdown(context.Context) error
-	}
-
-	// pre-Go1.8 Server can't Shutdown
-	cl, isServerCloseable := (interface{}(srv)).(closer)
-
-	// Since Go1.7 can't Shutdown() - there will be leak from server
-	// Monitor leaks on Go 1.8+
-	if isServerCloseable {
-		defer leaktest.CheckTimeout(t, time.Second*10)()
-	}
-
-	cli.healthcheck(time.Millisecond*500, true)
-
-	if isServerCloseable {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		cl.Shutdown(ctx)
-	}
-
-	<-time.After(time.Second)
-	if !reqDone {
-		t.Fatal("Request wasn't canceled or stopped")
 	}
 }
 
@@ -471,7 +400,7 @@ func TestClientSniffNode(t *testing.T) {
 	}
 
 	ch := make(chan []*conn)
-	go func() { ch <- client.sniffNode(context.Background(), DefaultURL) }()
+	go func() { ch <- client.sniffNode(DefaultURL) }()
 
 	select {
 	case nodes := <-ch:
@@ -522,75 +451,6 @@ func TestClientSniffOnDefaultURL(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("expected no timeout in sniff")
 		break
-	}
-}
-
-func TestClientSniffTimeoutLeak(t *testing.T) {
-	// This test test checks if sniff requests are canceled
-	// after timeout.
-	// It contains couple of hacks which won't be needed once we
-	// stop supporting Go1.7.
-	// On Go1.7 it uses server side effects to monitor if connection
-	// was closed,
-	// and on Go 1.8+ we're additionally honestly monitoring routine
-	// leaks via leaktest.
-	mux := http.NewServeMux()
-
-	var reqDone bool
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		cn, ok := w.(http.CloseNotifier)
-		if !ok {
-			t.Fatalf("Writer is not CloseNotifier, but %v", reflect.TypeOf(w).Name())
-		}
-		<-cn.CloseNotify()
-		reqDone = true
-	})
-
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("Couldn't setup listener: %v", err)
-	}
-	addr := lis.Addr().String()
-
-	srv := &http.Server{
-		Handler: mux,
-	}
-	go srv.Serve(lis)
-
-	cli := &Client{
-		c: &http.Client{},
-		conns: []*conn{
-			&conn{
-				url: "http://" + addr + "/",
-			},
-		},
-		snifferEnabled: true,
-	}
-
-	type closer interface {
-		Shutdown(context.Context) error
-	}
-
-	// pre-Go1.8 Server can't Shutdown
-	cl, isServerCloseable := (interface{}(srv)).(closer)
-
-	// Since Go1.7 can't Shutdown() - there will be leak from server
-	// Monitor leaks on Go 1.8+
-	if isServerCloseable {
-		defer leaktest.CheckTimeout(t, time.Second*10)()
-	}
-
-	cli.sniff(time.Millisecond * 500)
-
-	if isServerCloseable {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		cl.Shutdown(ctx)
-	}
-
-	<-time.After(time.Second)
-	if !reqDone {
-		t.Fatal("Request wasn't canceled or stopped")
 	}
 }
 
@@ -844,29 +704,7 @@ func TestPerformRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := client.PerformRequest("GET", "/", nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res == nil {
-		t.Fatal("expected response to be != nil")
-	}
-
-	ret := new(PingResult)
-	if err := json.Unmarshal(res.Body, ret); err != nil {
-		t.Fatalf("expected no error on decode; got: %v", err)
-	}
-	if ret.ClusterName == "" {
-		t.Errorf("expected cluster name; got: %q", ret.ClusterName)
-	}
-}
-
-func TestPerformRequestC(t *testing.T) {
-	client, err := NewClient()
-	if err != nil {
-		t.Fatal(err)
-	}
-	res, err := client.PerformRequestC(context.Background(), "GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -888,7 +726,7 @@ func TestPerformRequestWithSimpleClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := client.PerformRequest("GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -914,7 +752,7 @@ func TestPerformRequestWithLogger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.PerformRequest("GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -953,7 +791,7 @@ func TestPerformRequestWithLoggerAndTracer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.PerformRequest("GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -996,7 +834,7 @@ func TestPerformRequestWithCustomLogger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.PerformRequest("GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1044,7 +882,7 @@ func (tr *failingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 func TestPerformRequestRetryOnHttpError(t *testing.T) {
 	var numFailedReqs int
 	fail := func(r *http.Request) (*http.Response, error) {
-		numFailedReqs++
+		numFailedReqs += 1
 		//return &http.Response{Request: r, StatusCode: 400}, nil
 		return nil, errors.New("request failed")
 	}
@@ -1059,7 +897,7 @@ func TestPerformRequestRetryOnHttpError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.PerformRequest("GET", "/fail", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/fail", nil, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -1075,7 +913,7 @@ func TestPerformRequestRetryOnHttpError(t *testing.T) {
 func TestPerformRequestNoRetryOnValidButUnsuccessfulHttpStatus(t *testing.T) {
 	var numFailedReqs int
 	fail := func(r *http.Request) (*http.Response, error) {
-		numFailedReqs++
+		numFailedReqs += 1
 		return &http.Response{Request: r, StatusCode: 500}, nil
 	}
 
@@ -1089,7 +927,7 @@ func TestPerformRequestNoRetryOnValidButUnsuccessfulHttpStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.PerformRequest("GET", "/fail", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/fail", nil, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -1118,7 +956,7 @@ func TestPerformRequestWithSetBodyError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := client.PerformRequest("GET", "/", nil, failingBody{})
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, failingBody{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -1138,8 +976,8 @@ func (tr *sleepingTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 	return http.DefaultTransport.RoundTrip(r)
 }
 
-func TestPerformRequestCWithCancel(t *testing.T) {
-	tr := &sleepingTransport{timeout: 5 * time.Second}
+func TestPerformRequestWithCancel(t *testing.T) {
+	tr := &sleepingTransport{timeout: 3 * time.Second}
 	httpClient := &http.Client{Transport: tr}
 
 	client, err := NewSimpleClient(SetHttpClient(httpClient), SetMaxRetries(0))
@@ -1155,7 +993,7 @@ func TestPerformRequestCWithCancel(t *testing.T) {
 
 	resc := make(chan result, 1)
 	go func() {
-		res, err := client.PerformRequestC(ctx, "GET", "/", nil, nil)
+		res, err := client.PerformRequest(ctx, "GET", "/", nil, nil)
 		resc <- result{res: res, err: err}
 	}()
 	select {
@@ -1172,8 +1010,8 @@ func TestPerformRequestCWithCancel(t *testing.T) {
 	}
 }
 
-func TestPerformRequestCWithTimeout(t *testing.T) {
-	tr := &sleepingTransport{timeout: 5 * time.Second}
+func TestPerformRequestWithTimeout(t *testing.T) {
+	tr := &sleepingTransport{timeout: 3 * time.Second}
 	httpClient := &http.Client{Transport: tr}
 
 	client, err := NewSimpleClient(SetHttpClient(httpClient), SetMaxRetries(0))
@@ -1189,7 +1027,7 @@ func TestPerformRequestCWithTimeout(t *testing.T) {
 
 	resc := make(chan result, 1)
 	go func() {
-		res, err := client.PerformRequestC(ctx, "GET", "/", nil, nil)
+		res, err := client.PerformRequest(ctx, "GET", "/", nil, nil)
 		resc <- result{res: res, err: err}
 	}()
 	select {
@@ -1237,7 +1075,7 @@ func testPerformRequestWithCompression(t *testing.T, hc *http.Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := client.PerformRequestC(context.TODO(), "GET", "/", nil, nil)
+	res, err := client.PerformRequest(context.TODO(), "GET", "/", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
