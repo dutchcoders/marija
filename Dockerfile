@@ -1,4 +1,4 @@
-FROM golang:1.7-alpine
+FROM golang:latest
 
 ADD . /go/src/github.com/dutchcoders/marija
 

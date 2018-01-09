@@ -120,10 +120,6 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 			elastic.NewScriptField("src-ip_dst-net_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-net'] + '_' + params['_source']['destination-port']")),
 		}
 
-		// only subest of fields
-
-		// hash on fields
-
 		q := elastic.NewQueryStringQuery(so.Query)
 
 		src := elastic.NewSearchSource().
