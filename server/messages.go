@@ -71,6 +71,7 @@ type SearchRequest struct {
 	Request
 
 	Datasources []string `json:"datasources"`
+	Datasource  string   `json:"datasource"`
 	Fields      []string `json:"fields"`
 	Query       string   `json:"query"`
 }

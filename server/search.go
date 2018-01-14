@@ -22,7 +22,15 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 		Query:     r.Query,
 	})
 
-	indexes := r.Datasources
+	indexes := []string{}
+
+	if r.Datasource != "" {
+		indexes = append(indexes, r.Datasource)
+	}
+
+	if len(r.Datasources) >= 1 {
+		indexes = append(indexes, r.Datasources...)
+	}
 
 	for _, index := range indexes {
 		datasource, ok := c.server.Datasources[index]
