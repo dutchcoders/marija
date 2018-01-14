@@ -116,8 +116,10 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		index := path.Base(i.URL.Path)
 
 		scriptFields := []*elastic.ScriptField{
+		/*
 			//		elastic.NewScriptField("src-ip_dst-ip_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-ip'] + '_' + params['_source']['destination-port']")),
 			elastic.NewScriptField("src-ip_dst-net_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-net'] + '_' + params['_source']['destination-port']")),
+		*/
 		}
 
 		q := elastic.NewQueryStringQuery(so.Query)
@@ -246,15 +248,17 @@ func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Fie
 		fields = append(fields, flatten("", v.(map[string]interface{}))...)
 	}
 
-	fields = append(fields, datasources.Field{
-		Path: "src-ip_dst-net_port",
-		Type: "string",
-	})
+	/*
+		fields = append(fields, datasources.Field{
+			Path: "src-ip_dst-net_port",
+			Type: "string",
+		})
 
-	fields = append(fields, datasources.Field{
-		Path: "src-ip_dst-ip_port",
-		Type: "string",
-	})
+		fields = append(fields, datasources.Field{
+			Path: "src-ip_dst-ip_port",
+			Type: "string",
+		})
+	*/
 
 	return
 }
