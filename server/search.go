@@ -44,7 +44,7 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 			continue
 		}
 
-		go func() {
+		go func() (err error) {
 			defer func() {
 				if err := recover(); err != nil {
 					trace := make([]byte, 1024)
@@ -62,39 +62,45 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 
 			items := []datasources.Item{}
 
-			for {
-				select {
-				case <-ctx.Done():
+			defer func() {
+				if err == context.Canceled {
 					c.Send(&SearchCanceled{
 						RequestID: r.RequestID,
 					})
-
-					return
-				case err, ok := <-response.Error():
-					if !ok {
-						return
-					}
-
+				} else if err != nil {
 					log.Error("Error: ", err.Error())
 
 					c.Send(&ErrorMessage{
 						RequestID: r.RequestID,
 						Message:   err.Error(),
 					})
+				} else {
+					c.Send(&SearchResponse{
+						RequestID: r.RequestID,
+						Query:     r.Query,
+						Nodes:     items,
+					})
 
+					c.Send(&SearchCompleted{
+						RequestID: r.RequestID,
+					})
+				}
+			}()
+
+			for {
+				select {
+				case <-ctx.Done():
+					err = ctx.Err()
+					return
+				case err, ok := <-response.Error():
+					if !ok {
+						return nil
+					}
+
+					return err
 				case item, ok := <-response.Item():
 					if !ok {
-						c.Send(&SearchResponse{
-							RequestID: r.RequestID,
-							Query:     r.Query,
-							Nodes:     items,
-						})
-
-						c.Send(&SearchCompleted{
-							RequestID: r.RequestID,
-						})
-
-						return
+						return nil
 					}
 
 					// filter fields

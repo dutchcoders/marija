@@ -46,6 +46,8 @@ const (
 
 	InitialStateReceive = "INITIAL_STATE_RECEIVE"
 
+	ActionTypeCancel = "CANCEL_REQUEST"
+
 	ActionTypeSearchRequest   = "SEARCH_REQUEST"
 	ActionTypeSearchReceive   = "SEARCH_RECEIVE"
 	ActionTypeSearchCanceled  = "SEARCH_CANCELED"
@@ -76,9 +78,7 @@ func (c *connection) Send(v json.Marshaler) {
 
 // readPump pumps messages from the websocket connection to the hub.
 func (c *connection) readPump() {
-	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		cancel()
 		h.unregister <- c
 		c.ws.Close()
 	}()
@@ -101,6 +101,14 @@ func (c *connection) readPump() {
 		CommitID:    CommitID,
 	})
 
+	cancelFuncs := map[string]context.CancelFunc{}
+
+	defer func() {
+		for _, cancel := range cancelFuncs {
+			cancel()
+		}
+	}()
+
 	for {
 		_, data, err := c.ws.ReadMessage()
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
@@ -115,6 +123,20 @@ func (c *connection) readPump() {
 			log.Error("Error decoding message: ", err.Error())
 			continue
 		}
+
+		if r.Type == ActionTypeCancel {
+			cancel, ok := cancelFuncs[r.RequestID]
+			if !ok {
+				log.Error("Could not find cancel func for requestid: %s", r.RequestID)
+
+			}
+
+			cancel()
+			continue
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelFuncs[r.RequestID] = cancel
 
 		switch r.Type {
 		case ActionTypeSearchRequest:
@@ -165,6 +187,8 @@ func (c *connection) readPump() {
 					Message:   err.Error(),
 				})
 			}
+		default:
+			log.Error("Unknown request: %s", r.Type)
 		}
 	}
 }
