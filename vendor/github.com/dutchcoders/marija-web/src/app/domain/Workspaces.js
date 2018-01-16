@@ -32,7 +32,6 @@ export default class Workspaces {
      */
     static persistCurrentWorkspace(state){
         try {
-
             const persistedState = Object.assign({}, {state: state}, {
                 version: Migrations.getCurrentVersion(),
                 state: {
@@ -45,6 +44,8 @@ export default class Workspaces {
                         nodes: [],
                         links: [],
                         searches: [],
+                        nodesForDisplay: [],
+                        linksForDisplay: []
                     }
                 }
             });

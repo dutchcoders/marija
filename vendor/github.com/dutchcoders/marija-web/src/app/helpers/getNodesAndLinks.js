@@ -1,6 +1,21 @@
 import { slice, concat, without, reduce, remove, assign, find, forEach, union, filter, uniqBy } from 'lodash';
 import {fieldLocator, normalize} from "./index";
 
+function getHash(string) {
+    let hash = 0, i, chr;
+
+    if (string.length === 0) {
+        return hash;
+    }
+
+    for (i = 0; i < string.length; i++) {
+        chr   = string.charCodeAt(i);
+        hash  = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+}
+
 export default function getNodesAndLinks(previousNodes, previousLinks, items, fields, query, normalizations) {
     let nodes = concat(previousNodes, []);
     let links = concat(previousLinks, []);
@@ -57,10 +72,12 @@ export default function getNodesAndLinks(previousNodes, previousLinks, items, fi
                         id: normalizedSourceValue,
                         queries: [query],
                         items: [d.id],
+                        count: d.count,
                         name: normalizedSourceValue,
                         description: '',
                         icon: source.icon,
                         fields: [source.path],
+                        hash: getHash(normalizedSourceValue),
                     };
 
                     nodeCache[n.id] = n;
@@ -110,10 +127,12 @@ export default function getNodesAndLinks(previousNodes, previousLinks, items, fi
                                 id: normalizedTargetValue,
                                 queries: [query],
                                 items: [d.id],
+                                count: d.count,
                                 name: normalizedTargetValue,
                                 description: '',
                                 icon: [target.icon],
                                 fields: [target.path],
+                                hash: getHash(normalizedTargetValue)
                             };
 
                             nodeCache[n.id] = n;
@@ -132,20 +151,25 @@ export default function getNodesAndLinks(previousNodes, previousLinks, items, fi
                             continue;
                         }
 
-                        if (linkCache[normalizedSourceValue + normalizedTargetValue]
-                         || linkCache[normalizedTargetValue + normalizedSourceValue]) {
-                            // link already exists
+                        let linkCacheRef = normalizedSourceValue + normalizedTargetValue;
+                        let oppositeLinkCacheRef = normalizedTargetValue + normalizedSourceValue;
+
+                        // check if link already exists
+                        if ((linkCache[linkCacheRef]
+                         || linkCache[oppositeLinkCacheRef])) {
                             continue;
                         }
 
                         const link = {
                             source: normalizedSourceValue,
                             target: normalizedTargetValue,
-                            color: '#ccc'
+                            color: '#ccc',
+                            total: 1,
+                            current: 1
                         };
 
                         links.push(link);
-                        linkCache[link.source + link.target] = link;
+                        linkCache[linkCacheRef] = link;
                     }
                 });
             }

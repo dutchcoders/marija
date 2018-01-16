@@ -32,3 +32,16 @@ canvas.graph {
     cursor: pointer;
   }
 }
+
+.graphComponent,
+.graphContainer {
+  height: 100%;
+}
+
+.stats {
+  position: absolute;
+  right: 10px;
+  bottom: -10px;
+  text-align: right;
+  font-size: .9em;
+}

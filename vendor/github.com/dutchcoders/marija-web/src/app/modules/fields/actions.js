@@ -8,11 +8,11 @@ export function clearAllFields(){
 }
 
 
-export function receiveFields(payload) {
+export function receiveFields(fields) {
     return {
         type: FIELDS_RECEIVE,
         payload: {
-            ...payload
+            fields: fields
         }
     };
 }

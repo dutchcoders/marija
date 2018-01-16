@@ -33,7 +33,7 @@ export default class Record extends Component {
                     return (null);
                 }
 
-                if (find(search.items, (i) => i.id == record.id)) {
+                if (find(search.items, (i) => i !== null && i.id === record.id)) {
                     return (<Icon name='ion-ios-lightbulb' style={{ color: search.color }} alt={ search.q } />);
                 }
 
@@ -51,7 +51,7 @@ export default class Record extends Component {
 
         return (
             <tr key={`record_${record.id}`} className={`columns ${expanded ? 'expanded' : 'closed'}`}>
-                <td width="25" style={{'textAlign': 'center'}}>
+                <td width="25" style={{'textAlign': 'center'}} colSpan="999">
                     <Icon onClick={() => this.handleToggleExpand(record.id) }
                           name={expanded ? 'ion-ios-minus' : 'ion-ios-plus'}/>
 

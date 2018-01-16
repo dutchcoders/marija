@@ -1,2 +1,2 @@
-export { IMPORT_DATA } from './constants';
-export { importData } from './actions';
+export { IMPORT_DATA, EXPORT_DATA } from './constants';
+export { importData, exportData } from './actions';

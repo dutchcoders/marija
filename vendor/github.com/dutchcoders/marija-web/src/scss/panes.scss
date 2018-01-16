@@ -250,6 +250,18 @@
     .form-group {
         margin-bottom: 30px;
 
+        &.via-row {
+            margin-bottom: 0;
+
+            label {
+                padding-top: 7px;
+            }
+        }
+
+        .alert {
+            padding: 5px 10px;
+        }
+
         h2 {
             font-size: 12px;
             text-transform: uppercase;
@@ -285,7 +297,7 @@
         ul {
             padding-left: 0;
 
-            li {
+            > li {
                 position: relative;
                 font-weight: 300;
                 list-style-type: none;
@@ -321,6 +333,11 @@
                     }
                 }
 
+                .ion-ios-arrow-right {
+                    position: static;
+                    cursor: default;
+                }
+
                 .fieldIcon {
                     margin-right: 20px;
                     font-size: 1em;
@@ -338,6 +355,10 @@
                     right: 1px;
                     zoom: 1.5;
                 }
+            }
+
+            ol {
+                padding-left: 15px;
             }
         }
 
@@ -416,12 +437,53 @@
             margin: 0 0 0 10px;
             display: flex;
             align-items: center;
+            overflow: hidden;
+            position: relative;
 
             i {
-                font-size: 16px;
+                font-size: 18px;
                 padding-left: 5px;
                 cursor: pointer;
+                position: relative;
+                z-index: 1;
+
+                &.disabled {
+                    opacity: .5;
+                }
+            }
+
+            .count {
+                display: inline-block;
+                width: 60px;
+            }
+
+            &.loading:before {
+                content: '';
+                display: block;
+                position: absolute;
+                height: 100%;
+                width: 30px;
+                background: white;
+                left: 0;
+                top: 0;
+                animation: move 2s linear infinite;
+                z-index: 0;
             }
         }
+    }
+}
+
+@keyframes move {
+    0% {
+        transform: translateX(0) skew(-45deg);
+        opacity: 0;
+    }
+    50% {
+        transform: translateX(100px) skew(-45deg);
+        opacity: .2;
+    }
+    100% {
+        transform: translateX(200px) skew(-45deg);
+        opacity: 0;
     }
 }

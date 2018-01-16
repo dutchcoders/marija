@@ -1,7 +1,7 @@
 import {authConnected, error} from '../index';
 import Websocket from 'reconnecting-websocket';
 
-import { ITEMS_REQUEST } from '../../modules/search/index'
+import { SEARCH_REQUEST } from '../../modules/search/index'
 
 export default class FlowWS {
     constructor(url, token, dispatcher, storeDispatcher) {
@@ -55,13 +55,22 @@ export default class FlowWS {
             // the close event contains more feedback
         };
         websocket.onmessage = function (event) {
-            dispatcher(JSON.parse(event.data), storeDispatcher);
+            const parsed = JSON.parse(event.data);
+            console.log('receive', parsed.type);
+
+            if (parsed.type === 'ERROR') {
+                console.error('received error over socket: ', parsed);
+            }
+
+            dispatcher(parsed, storeDispatcher);
         };
 
         this.websocket = websocket;
     }
 
-    postMessage(data, type = ITEMS_REQUEST) {
+    postMessage(data, type = SEARCH_REQUEST) {
+        console.log('send ' + type, data);
+
         this.opened.then(() => {
             this.websocket.send(
                 JSON.stringify({

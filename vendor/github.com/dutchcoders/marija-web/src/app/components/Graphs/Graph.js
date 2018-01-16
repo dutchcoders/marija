@@ -7,7 +7,7 @@ import { map, clone, groupBy, reduce, forEach, difference, find, uniq, remove, e
 import moment from 'moment';
 
 import { nodesSelect, highlightNodes, nodeSelect, deselectNodes } from '../../modules/graph/index';
-import { normalize, fieldLocator } from '../../helpers/index';
+import {normalize, fieldLocator, getArcParams} from '../../helpers/index';
 import Loader from "../Misc/Loader";
 import {Icon} from "../index";
 
@@ -183,19 +183,45 @@ class Graph extends React.Component {
 
                 context.lineWidth = lines.stroke.thickness;
 
-                for (const link of graph.links) {
-                    this.drawLink(link);
+                const linkCounter = {};
 
+                for (const link of graph.links) {
                     if (link.color !== color) {
-                        context.strokeStyle = color;
-                        context.stroke();
+                        // todo: used to be an optimization here to start coloring after all lines had been drawn
+                        // maybe redundant when we switch to pixi js
+                        // context.strokeStyle = color;
+                        // context.stroke();
 
                         color = link.color;
                     }
-                };
 
-                context.strokeStyle = color;
-                context.stroke();
+                    // When drawing a link, we need to know how many links there are between these 2 nodes
+                    const linksBetweenNodes = graph.links
+                        .filter(loopLink =>
+                            (
+                                loopLink.source.id === link.source.id && loopLink.target.id === link.target.id
+                                || loopLink.target.id === link.source.id && loopLink.source.id === link.target.id
+                            )
+                            && typeof loopLink.label !== 'undefined'
+                        )
+                        .length;
+
+                    let nthLink = 1;
+
+                    if (linksBetweenNodes > 1 && typeof link.label !== 'undefined') {
+                        const linkCounterKey = link.source.id + link.target.id;
+
+                        if (linkCounter[linkCounterKey]) {
+                            linkCounter[linkCounterKey] += 1;
+                        } else {
+                            linkCounter[linkCounterKey] = 1;
+                        }
+
+                        nthLink = linkCounter[linkCounterKey];
+                    }
+
+                    this.drawLink(link, nthLink, linksBetweenNodes);
+                }
 
                 // draw nodes
                 for (let i = 0; i < graph.queries.length; i++) {
@@ -265,51 +291,192 @@ class Graph extends React.Component {
 
                     const lineHeight = 18;
                     const lines = Object.keys(tooltip.fields).length + 1;
-                    const rectHeight = lineHeight * lines + 10;
+                    const rectHeight = lineHeight * lines + 15;
                     const widths = [];
 
+                    context.font = 'bold 14px Arial';
+
                     forEach(tooltip.fields, (value, path) => {
-                        const {width} = context.measureText(value);
+                        const {width} = context.measureText(path + ': ' + value);
                         widths.push(width);
                     });
 
-                    const longestLine = widths.reduce((a, b) => Math.max(a, b)) + 10;
+                    const longestLine = widths.reduce((a, b) => Math.max(a, b));
 
                     context.beginPath();
-                    context.lineWidth="1";
-                    context.strokeStyle="#cecece";
-                    context.fillStyle="#fff";
+                    context.lineWidth = '1';
+                    context.strokeStyle = '#cecece';
+                    context.fillStyle = '#fff';
 
-                    context.rect(tooltip.x + 15, tooltip.y - 25, longestLine, rectHeight);
+                    context.rect(tooltip.x + 15, tooltip.y - 25, longestLine + 10, rectHeight);
                     context.stroke();
                     context.fill();
 
-                    context.fillStyle = '#000'; //d.color[0];
-                    context.font = "bold 14px Arial";
-
+                    context.fillStyle = '#000';
                     let textY = tooltip.y - 5;
                     const textX = tooltip.x + 20;
-                    const fieldsText = 'Type: ' + tooltip.matchFields.join(', ');
 
-                    context.fillText(fieldsText, textX, textY);
-                    textY += lineHeight;
+                    context.font = '14px Arial';
 
-                    context.font = "14px Arial";
+                    context.fillText(tooltip.query, textX, textY);
+
+                    context.beginPath();
+                    context.moveTo(textX, textY + 7);
+                    context.lineTo(textX + longestLine, textY + 7);
+                    context.stroke();
+
+                    textY += lineHeight + 5;
 
                     forEach(tooltip.fields, (value, path) => {
+                        if (tooltip.matchFields.indexOf(path) !== -1) {
+                            context.font = 'bold 14px Arial';
+                        }
+
                         const text = path + ': ' + (value === null ? '' : value);
 
                         context.fillText(text, textX, textY);
                         textY += lineHeight;
+
+                        context.font = '14px Arial';
                     });
                 }
 
-
                 context.restore();
             },
-            drawLink: function (d) {
-                this.context.moveTo(d.source.x, d.source.y);
-                this.context.lineTo(d.target.x, d.target.y);
+
+            drawLink: function(link, nthLink, linksBetweenNodes) {
+                this.context.fillStyle = link.color;
+                this.context.strokeStyle = link.color;
+
+                if (linksBetweenNodes <= 1) {
+                    // When there's only 1 link between 2 nodes, we can draw a straight line
+
+                    this.drawStraightLine(
+                        link.source.x,
+                        link.source.y,
+                        link.target.x,
+                        link.target.y
+                    );
+
+                    if (link.label) {
+                        this.drawTextAlongStraightLine(
+                            link.label,
+                            link.source.x,
+                            link.source.y,
+                            link.target.x,
+                            link.target.y
+                        );
+                    }
+                } else {
+                    // When there are multiple links between 2 nodes, we need to draw arcs
+
+                    // Bend only increases per 2 new links
+                    let bend = (nthLink + (nthLink % 2)) / 15;
+
+                    // Every second link will be drawn on the bottom instead of the top
+                    if (nthLink % 2 === 0) {
+                        bend = bend * -1;
+                    }
+
+                    const {centerX, centerY, radius, startAngle, endAngle} =
+                        getArcParams(
+                            link.source.x,
+                            link.source.y,
+                            link.target.x,
+                            link.target.y,
+                            bend
+                        );
+
+                    this.drawArc(centerX, centerY, radius, startAngle, endAngle, bend < 0);
+
+                    if (link.label) {
+                        const averageAngle = (startAngle + endAngle) / 2;
+
+                        this.drawTextAlongArc(link.label, centerX, centerY, radius, averageAngle, 2);
+                    }
+                }
+            },
+            drawStraightLine: function (x1, y1, x2, y2) {
+                this.context.beginPath();
+                this.context.moveTo(x1, y1);
+                this.context.lineTo(x2, y2);
+                this.context.stroke();
+            },
+            drawArc: function (centerX, centerY, radius, startAngle, endAngle, antiClockwise) {
+                this.context.beginPath();
+                this.context.arc(centerX, centerY, radius, startAngle, endAngle, antiClockwise);
+                this.context.stroke();
+            },
+            drawTextAlongStraightLine: function (string, x1, y1, x2, y2) {
+                const averageX = (x1 + x2) / 2;
+                const averageY = (y1 + y2) / 2;
+                const deltaX = x1 - x2;
+                const deltaY = y1 - y2;
+                const angle = Math.atan2(deltaY, deltaX);
+                const upsideDown = angle < -1.6 || angle > 1.6;
+
+                this.context.save();
+                this.context.translate(averageX, averageY);
+                this.context.rotate(angle);
+
+                if (upsideDown) {
+                    this.context.rotate(Math.PI);
+                }
+
+                this.context.textAlign = 'center';
+                this.context.fillText(string, 0, -2);
+                this.context.restore();
+            },
+            drawTextAlongArc: function (string, centerX, centerY, radius, angle, distanceFromArc) {
+                if (typeof string !== 'string') {
+                    // typecast to string
+                    string += '';
+                }
+
+                this.context.save();
+                this.context.translate(centerX, centerY);
+
+                const characters = string.length;
+                const stringWidth = this.context.measureText(string).width;
+                const stringAngle = stringWidth / radius;
+                const startAngle = angle + (Math.PI / 2) - (stringAngle / 2);
+                const upsideDown = angle < Math.PI;
+
+                this.context.rotate(startAngle);
+
+                if (upsideDown) {
+                    string = string.split('').reverse().join('');
+                }
+
+                for (let i = 0; i < characters; i ++) {
+                    this.context.save();
+
+                    const character = string[i];
+                    const characterWidth = this.context.measureText(character).width;
+                    const characterAngle = characterWidth / stringWidth * stringAngle;
+
+                    let textY = -1 * radius;
+
+                    if (upsideDown) {
+                        textY += distanceFromArc;
+                    } else {
+                        textY -= distanceFromArc;
+                    }
+
+                    this.context.translate(0, textY);
+
+                    if (upsideDown) {
+                        this.context.translate(characterWidth / 2, 0);
+                        this.context.rotate(-1 * Math.PI);
+                        this.context.textAlign = 'center';
+                    }
+
+                    this.context.fillText(character, 0, 0, 10);
+                    this.context.restore();
+                    this.context.rotate(characterAngle);
+                }
+
+                this.context.restore();
             },
             drawNode: function (d, q) {
                 // this.context.moveTo(d.x + d.r, d.y);

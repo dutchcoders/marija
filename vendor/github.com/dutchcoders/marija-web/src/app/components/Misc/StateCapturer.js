@@ -5,12 +5,35 @@ import { Workspaces, Migrations } from '../../domain/index'
 
 class StateCapturer extends Component {
 
+    debounce(fn, delay) {
+        let timer;
+
+        return function () {
+            const context = this;
+            const args = arguments;
+
+            clearTimeout(timer);
+
+            timer = setTimeout(function () {
+                fn.apply(context, args);
+            }, delay);
+        };
+    }
+
     componentWillReceiveProps(nextProps){
+        this.persistWorkspace();
+    }
+
+    /**
+     * Debounce workspace persisting by 1000ms, so we don't try to do this
+     * multiple times per second (better for performance).
+     */
+    persistWorkspace = this.debounce(() => {
         const { store } = this.props;
 
         const persistedState = Object.assign({}, store.getState());
-        Workspaces.persistCurrentWorkspace(persistedState)
-    }
+        Workspaces.persistCurrentWorkspace(persistedState);
+    }, 1000);
 
     render() {
         return null;

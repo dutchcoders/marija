@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import queryString from 'query-string';
 import {dateFieldAdd, fieldAdd} from "../../modules/data/actions";
 import {activateIndex} from "../../modules/indices/actions";
-import {requestItems} from "../../modules/search/actions";
+import {searchRequest} from "../../modules/search/actions";
 import Url from "../../domain/Url";
 
 class ResumeSession extends Component {
@@ -41,7 +41,9 @@ class ResumeSession extends Component {
         const { dispatch } = this.props;
 
         fields.forEach(field => {
-            dispatch(dateFieldAdd(field));
+            dispatch(dateFieldAdd({
+                path: field
+            }));
         });
     }
 
@@ -76,11 +78,12 @@ class ResumeSession extends Component {
             }
 
             terms.forEach(term => {
-                dispatch(requestItems({
+                dispatch(searchRequest({
                     query: term,
                     datasources: datasources,
                     from: 0,
-                    size: 500
+                    size: 500,
+                    fields: fields
                 }));
             });
         });

@@ -40,11 +40,23 @@ onmessage = function(event) {
 
         simulation = d3.forceSimulation()
             .stop()
-            .force("link", d3.forceLink().distance(50).id(function (d) {
+            .force("link", d3.forceLink().distance(link => {
+                if (!link.label) {
+                    return 80;
+                }
+
+                let label = link.label;
+
+                if (Array.isArray(label)) {
+                    label = label.join('');
+                }
+
+                return label.length * 10 + 30;
+            }).id(function (d) {
                 return d.id;
             }))
             .force("charge", d3.forceManyBody().strength(-100).distanceMax(500))
-            .force("center", d3.forceCenter(0, 0))
+            .force("center", d3.forceCenter(clientWidth / 2, clientHeight / 2))
             .force("vertical", d3.forceY().strength(0.018))
             .force("horizontal", d3.forceX().strength(0.006))
             .on("tick", () => {
@@ -65,7 +77,7 @@ onmessage = function(event) {
         };
 
         var countExtent = d3.extent(nodes, (n) => {
-            return n.items.length;
+            return n.count;
         }),
             radiusScale = d3.scalePow().exponent(2).domain(countExtent).range(sizeRange);
 
@@ -87,14 +99,14 @@ onmessage = function(event) {
             var n = find(that.nodes, {id: node.id});
             if (n) {
                 n = assign(n, node);
-                n = assign(n, {force: forceScale(n), r: radiusScale(n.items.length)});
+                n = assign(n, {force: forceScale(n), r: radiusScale(n.count)});
 
                 newNodes = true;
                 continue;
             }
 
             let node2 = clone(node);
-            node2 = assign(node2, {force: forceScale(node2), r: radiusScale(node2.items.length)});
+            node2 = assign(node2, {force: forceScale(node2), r: radiusScale(node2.count)});
 
             that.nodes.push(node2);
 
@@ -120,7 +132,14 @@ onmessage = function(event) {
             }
             
             // todo(nl5887): why?
-            that.links.push({source: link.source, target: link.target, color: link.color });
+            that.links.push({
+                source: link.source,
+                target: link.target,
+                color: link.color,
+                label: link.label,
+                total: link.total,
+                current: link.current
+            });
         }
 
         simulation

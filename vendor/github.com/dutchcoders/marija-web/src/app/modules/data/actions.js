@@ -1,4 +1,5 @@
 import { TABLE_COLUMN_ADD, TABLE_COLUMN_REMOVE, INDEX_ADD, INDEX_DELETE, FIELD_ADD, FIELD_DELETE, DATE_FIELD_ADD, DATE_FIELD_DELETE, NORMALIZATION_ADD, NORMALIZATION_DELETE, INITIAL_STATE_RECEIVE } from './index';
+import {VIA_ADD, VIA_DELETE} from "./constants";
 
 export function tableColumnRemove(field) {
     return {
@@ -89,3 +90,18 @@ export function receiveInitialState(initial_state) {
     };
 }
 
+export function viaAdd(via) {
+    return {
+        type: VIA_ADD,
+        receivedAt: Date.now(),
+        via: via
+    };
+}
+
+export function viaDelete(via) {
+    return {
+        type: VIA_DELETE,
+        receivedAt: Date.now(),
+        via: via
+    };
+}

@@ -20,6 +20,7 @@
   border-right-color: $pane-header-background-color;
 }
 
-.rc-tooltip-placement-bottomLeft .rc-tooltip-arrow {
+.rc-tooltip-placement-bottomLeft .rc-tooltip-arrow,
+.rc-tooltip-placement-bottom .rc-tooltip-arrow{
   border-bottom-color: $pane-header-background-color;
 }

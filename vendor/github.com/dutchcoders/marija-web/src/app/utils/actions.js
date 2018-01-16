@@ -1,10 +1,17 @@
-import {ERROR, AUTH_CONNECTED, OPEN_PANE, CLOSE_PANE} from './index';
+import {ERROR, AUTH_CONNECTED, OPEN_PANE, CLOSE_PANE, CANCEL_REQUEST} from './index';
 
 export function error(msg) {
     return {
         type: ERROR,
         receivedAt: Date.now(),
         errors: msg
+    };
+}
+
+export function cancelRequest(requestId) {
+    return {
+        type: CANCEL_REQUEST,
+        requestId: requestId
     };
 }
 

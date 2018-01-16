@@ -69,6 +69,8 @@
     "lodash": "^4.17.2",
     "moment": "^2.15.1",
     "node-sass": "^3.10.1",
+    "pixi-multistyle-text": "^0.6.0",
+    "pixi.js": "^4.6.2",
     "query-string": "^5.0.1",
     "rc-tooltip": "^3.7.0",
     "react": "^15.3.2",

@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import { SearchBox, requestItems } from '../modules/search/index';
+import { SearchBox, searchRequest } from '../modules/search/index';
 import { Icon } from '../components/index';
 
 import { generateColour } from '../helpers/index';
@@ -15,15 +15,16 @@ class Header extends Component {
     }
 
     onSearchSubmit(q, index) {
-        const { dispatch, activeIndices } = this.props;
+        const { dispatch, activeIndices, fields } = this.props;
 
         Url.addQueryParam('search', q);
 
-        dispatch(requestItems({
+        dispatch(searchRequest({
             query: q,
             from: 0, 
             size: 500,
-            datasources: activeIndices
+            datasources: activeIndices,
+            fields: fields
         }));
     }
 

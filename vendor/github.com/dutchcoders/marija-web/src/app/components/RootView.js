@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
-import { Header, Record, TableView, ConfigurationView, Histogram, Queries, Graph, Pane, Icon, Nodes } from './index';
+import { Header, Record, TableView, ConfigurationView, Histogram, Queries, Graph, GraphPixi, Pane, Icon, Nodes } from './index';
 import { ErrorStatus } from '../modules/status/index';
 
 
@@ -33,7 +33,7 @@ class RootView extends Component {
                 <div className="row">
                     <div className="col-xs-12">
                         <div className="row" style={{'height': 'calc(100vh - 74px)'}}>
-                            <Graph
+                            <GraphPixi
                                 className="graph"
                                 handleMouseOver={ () => this.handleMouseOver() }
                             />

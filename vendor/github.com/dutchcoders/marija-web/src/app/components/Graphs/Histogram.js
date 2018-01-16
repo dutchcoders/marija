@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { find, map, groupBy, reduce, forEach, filter } from 'lodash';
+import { find, map, groupBy, reduce, forEach, filter, concat } from 'lodash';
 import Dimensions from 'react-dimensions';
 
 import * as d3 from 'd3';
@@ -32,13 +32,14 @@ class Histogram extends React.Component {
     }
 
     draw() {
-        const { node, normalizations, fields, date_fields } = this.props;
+        const { node, normalizations, fields, date_fields, items } = this.props;
         const { canvas } = this;
 
-        let { items } = this.props;
-        if (!items.length) {
+        if (!items.length || !date_fields.length) {
             return;
         }
+
+        let itemsCopy = concat([], items);
 
         const context = this.context;
         context.save();
@@ -58,7 +59,7 @@ class Histogram extends React.Component {
 
         context.translate(margin.left, margin.top);
 
-        const groupedResults = groupBy(items, (result) => {
+        const groupedResults = groupBy(itemsCopy, (result) => {
             for (var date_field of date_fields) {
                 let date = fieldLocator(result.fields, date_field.path);
                 if (!date) {
@@ -69,7 +70,7 @@ class Histogram extends React.Component {
             }
         });
 
-        const minX = reduce(items, (min, result) => {
+        const minX = reduce(itemsCopy, (min, result) => {
             for (var date_field of date_fields) {
                 let date = fieldLocator(result.fields, date_field.path);
                 if (!date) {
@@ -80,7 +81,7 @@ class Histogram extends React.Component {
             }
         }, moment());
 
-        const maxX = reduce(items, (max, result) => {
+        const maxX = reduce(itemsCopy, (max, result) => {
             for (var date_field of date_fields) {
                 let date = fieldLocator(result.fields, date_field.path);
                 if (!date) {
@@ -163,7 +164,7 @@ class Histogram extends React.Component {
         });
 
         if (node.length > 0) {
-            items = filter(items, (item) => {
+            itemsCopy = filter(itemsCopy, (item) => {
                 // check if node contains item
                 return reduce(fields, (found, field) => {
                     const val = fieldLocator(item.fields, field.path);
@@ -175,7 +176,7 @@ class Histogram extends React.Component {
                 }, false);
             });
 
-            const groupedResultsSelection = groupBy(items, (result) => {
+            const groupedResultsSelection = groupBy(itemsCopy, (result) => {
                 for (var date_field of date_fields) {
                     let date = fieldLocator(result.fields, date_field.path);
                     if (!date) {

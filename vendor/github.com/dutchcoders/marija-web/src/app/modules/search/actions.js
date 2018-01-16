@@ -1,26 +1,38 @@
-import { ITEMS_RECEIVE, ITEMS_REQUEST, SEARCH_DELETE } from './index';
+import { SEARCH_RECEIVE, SEARCH_REQUEST, SEARCH_DELETE, DISPLAY_LESS, SET_DISPLAY_NODES, SEARCH_COMPLETED } from './index';
 
 const defaultOpts = {
     from: 0,
     size: 500,
-    index: "",
-    query: "",
-    color: ""
+    displayNodes: 500,
+    index: '',
+    query: '',
+    color: '',
+    fields: [],
+    completed: false
 };
 
-export function requestItems(opts = defaultOpts) {
+export function searchRequest(opts) {
+    const newOpts = Object.assign(defaultOpts, opts);
+
     return {
-        type: ITEMS_REQUEST,
+        type: SEARCH_REQUEST,
         receivedAt: Date.now(),
-        ...opts
+        ...newOpts
     };
 }
 
-export function receiveItems(items, opts = {from: 0}) {
+export function searchReceive(items, opts = {from: 0}) {
     return {
-        type: ITEMS_RECEIVE,
+        type: SEARCH_RECEIVE,
         items: items,
         receivedAt: Date.now()
+    };
+}
+
+export function searchCompleted(requestId) {
+    return {
+        type: SEARCH_COMPLETED,
+        requestId: requestId
     };
 }
 
@@ -29,5 +41,14 @@ export function deleteSearch(opts) {
         type: SEARCH_DELETE,
         receivedAt: Date.now(),
         ...opts
+    };
+}
+
+export function setDisplayNodes(query, newAmount) {
+    return {
+        type: SET_DISPLAY_NODES,
+        receivedAt: Date.now(),
+        query: query,
+        newAmount: newAmount
     };
 }

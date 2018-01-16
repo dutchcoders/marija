@@ -1,8 +1,12 @@
-import { FlowWS, error } from '../../utils/index';
-import { receiveItems, ITEMS_RECEIVE } from '../../modules/search/index';
-import { receiveIndices, INDICES_RECEIVE} from '../../modules/indices/index';
-import { receiveFields, FIELDS_RECEIVE} from '../../modules/fields/index';
-import { receiveInitialState, INITIAL_STATE_RECEIVE } from '../../modules/data/index';
+import {FlowWS, error} from '../../utils/index';
+import {searchReceive, SEARCH_RECEIVE, SEARCH_COMPLETED} from '../../modules/search/index';
+import {receiveIndices, INDICES_RECEIVE} from '../../modules/indices/index';
+import {receiveFields, FIELDS_RECEIVE} from '../../modules/fields/index';
+import {
+    receiveInitialState,
+    INITIAL_STATE_RECEIVE
+} from '../../modules/data/index';
+import {searchCompleted} from "../../modules/search/actions";
 
 export const Socket = {
     ws: null,
@@ -12,21 +16,30 @@ export const Socket = {
         }
 
         switch (message.type) {
-            case ITEMS_RECEIVE:
-		dispatch(receiveItems(message.items));
+            case SEARCH_RECEIVE:
+                dispatch(searchReceive({
+                    results: message.results,
+                    query: message.query,
+                }));
                 break;
 
             case INDICES_RECEIVE:
-		dispatch(receiveIndices(message.indices));
+                dispatch(receiveIndices(message.indices));
                 break;
 
             case FIELDS_RECEIVE:
-		dispatch(receiveFields(message.fields));
+                dispatch(receiveFields(message.fields));
                 break;
 
             case INITIAL_STATE_RECEIVE:
-		dispatch(receiveInitialState(message.state));
+                dispatch(receiveInitialState({
+                    datasources: message.datasources,
+                    version: message.version
+                }));
                 break;
+
+            case SEARCH_COMPLETED:
+                dispatch(searchCompleted(message['request-id']));
         }
     },
     startWS: (dispatch) => {
@@ -39,7 +52,7 @@ export const Socket = {
         if (process.env.WEBSOCKET_URI) {
             url = process.env.WEBSOCKET_URI;
         } else {
-            const { location } = window;
+            const {location} = window;
             url = ((location.protocol === "https:") ? "wss://" : "ws://") + location.host + "/ws";
         }
 
