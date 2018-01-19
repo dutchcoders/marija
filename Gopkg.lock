@@ -57,12 +57,6 @@
 
 [[projects]]
   branch = "master"
-  name = "github.com/golang/protobuf"
-  packages = ["proto"]
-  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
-
-[[projects]]
-  branch = "master"
   name = "github.com/google/go-querystring"
   packages = ["query"]
   revision = "53e6ce116135b80d037921a7fdd5138cf32d7a8a"
@@ -84,6 +78,12 @@
   name = "github.com/kr/text"
   packages = ["."]
   revision = "7cafcd837844e784b526369c9bce262804aebc60"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mailru/easyjson"
+  packages = [".","buffer","jlexer","jwriter"]
+  revision = "32fa128f234d041f196a9f3e0fea5ac9772c08e1"
 
 [[projects]]
   name = "github.com/mattn/go-colorable"
@@ -116,6 +116,12 @@
   version = "v2.1.0"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/qedus/blockchain"
   packages = ["."]
@@ -130,36 +136,24 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context","context/ctxhttp"]
+  packages = ["context"]
   revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "fff93fa7cd278d84afc205751523809c464168ab"
-
-[[projects]]
-  name = "google.golang.org/appengine"
-  packages = ["internal/base","internal/datastore","internal/log","internal/remote_api"]
-  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
-  version = "v1.0.0"
-
-[[projects]]
-  name = "gopkg.in/olivere/elastic.v3"
-  packages = ["backoff","uritemplates"]
-  revision = "b3b762ecb4a4acb9dafd3e0de5ba597a117c83f8"
-  version = "v3.0.71"
+  revision = "2c42eef0765b9837fbdab12011af7830f55f88f0"
 
 [[projects]]
   name = "gopkg.in/olivere/elastic.v5"
-  packages = [".","backoff","uritemplates"]
-  revision = "4ba548ef864c4198c5f2961828fd7c0c987a8b9d"
-  version = "v5.0.22"
+  packages = [".","config","uritemplates"]
+  revision = "1094ee281ca61a783c9ba22bf86e7e0a8aa2d112"
+  version = "v5.0.62"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3079618e822dc343137fa8dfa196b79dce9686bcac124d2de30d237393c35ca9"
+  inputs-digest = "762709c7025268b8d2bcd22ac8d10b2f1848f7465fe2410ac30dcb6262202c2e"
   solver-name = "gps-cdcl"
   solver-version = 1

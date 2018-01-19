@@ -5,16 +5,16 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
-	"golang.org/x/net/context"
-
 	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
 
-// ClusterStatsService is documented at http://www.elasticsearch.org/guide/en/elasticsearch/reference/1.4/cluster-stats.html.
+// ClusterStatsService is documented at
+// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/cluster-stats.html.
 type ClusterStatsService struct {
 	client       *Client
 	pretty       bool
@@ -249,11 +249,11 @@ type ClusterStatsNodes struct {
 }
 
 type ClusterStatsNodesCount struct {
-	Total      int `json:"total"`
-	MasterOnly int `json:"master_only"`
-	DataOnly   int `json:"data_only"`
-	MasterData int `json:"master_data"`
-	Client     int `json:"client"`
+	Total            int `json:"total"`
+	Data             int `json:"data"`
+	CoordinatingOnly int `json:"coordinating_only"`
+	Master           int `json:"master"`
+	Ingest           int `json:"ingest"`
 }
 
 type ClusterStatsNodesOsStats struct {

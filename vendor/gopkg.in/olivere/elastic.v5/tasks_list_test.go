@@ -5,28 +5,27 @@
 package elastic
 
 import (
+	"context"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 func TestTasksListBuildURL(t *testing.T) {
 	client := setupTestClient(t)
 
 	tests := []struct {
-		TaskId   []int64
+		TaskId   []string
 		Expected string
 	}{
 		{
-			[]int64{},
+			[]string{},
 			"/_tasks",
 		},
 		{
-			[]int64{42},
+			[]string{"42"},
 			"/_tasks/42",
 		},
 		{
-			[]int64{42, 37},
+			[]string{"42", "37"},
 			"/_tasks/42%2C37",
 		},
 	}

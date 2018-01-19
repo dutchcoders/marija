@@ -5,13 +5,12 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 func TestBulkProcessorDefaults(t *testing.T) {
@@ -38,6 +37,9 @@ func TestBulkProcessorDefaults(t *testing.T) {
 	}
 	if got, want := p.wantStats, false; got != want {
 		t.Errorf("expected %v; got: %v", want, got)
+	}
+	if p.backoff == nil {
+		t.Fatalf("expected non-nill backoff; got: %v", p.backoff)
 	}
 }
 
@@ -118,7 +120,7 @@ func TestBulkProcessorBasedOnFlushInterval(t *testing.T) {
 		Before(beforeFn).
 		After(afterFn)
 
-	p, err := svc.Do()
+	p, err := svc.Do(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +203,7 @@ func TestBulkProcessorClose(t *testing.T) {
 		BulkSize(-1).
 		FlushInterval(30 * time.Second). // 30 seconds to flush
 		Before(beforeFn).After(afterFn).
-		Do()
+		Do(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +269,7 @@ func TestBulkProcessorFlush(t *testing.T) {
 		BulkSize(-1).
 		FlushInterval(30 * time.Second). // 30 seconds to flush
 		Stats(true).
-		Do()
+		Do(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +352,7 @@ func testBulkProcessor(t *testing.T, numDocs int, svc *BulkProcessorService) {
 		atomic.AddInt64(&afterRequests, int64(len(requests)))
 	}
 
-	p, err := svc.Before(beforeFn).After(afterFn).Stats(true).Do()
+	p, err := svc.Before(beforeFn).After(afterFn).Stats(true).Do(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

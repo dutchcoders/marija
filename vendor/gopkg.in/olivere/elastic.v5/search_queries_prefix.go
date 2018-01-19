@@ -8,7 +8,7 @@ package elastic
 // with a specified prefix (not analyzed).
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-prefix-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-prefix-query.html
 type PrefixQuery struct {
 	name      string
 	prefix    string
@@ -50,7 +50,7 @@ func (q *PrefixQuery) Source() (interface{}, error) {
 		query[q.name] = q.prefix
 	} else {
 		subQuery := make(map[string]interface{})
-		subQuery["prefix"] = q.prefix
+		subQuery["value"] = q.prefix
 		if q.boost != nil {
 			subQuery["boost"] = *q.boost
 		}

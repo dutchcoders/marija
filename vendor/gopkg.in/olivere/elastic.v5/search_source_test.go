@@ -132,7 +132,7 @@ func TestSearchSourceScriptFields(t *testing.T) {
 		t.Fatalf("marshaling to JSON failed: %v", err)
 	}
 	got := string(data)
-	expected := `{"query":{"match_all":{}},"script_fields":{"test1":{"script":"doc['my_field_name'].value * 2"},"test2":{"script":{"inline":"doc['my_field_name'].value * factor","params":{"factor":3.1415927}}}}}`
+	expected := `{"query":{"match_all":{}},"script_fields":{"test1":{"script":{"inline":"doc['my_field_name'].value * 2"}},"test2":{"script":{"inline":"doc['my_field_name'].value * factor","params":{"factor":3.1415927}}}}}`
 	if got != expected {
 		t.Errorf("expected\n%s\n,got:\n%s", expected, got)
 	}
@@ -178,7 +178,7 @@ func TestSearchSourceHighlight(t *testing.T) {
 
 func TestSearchSourceRescoring(t *testing.T) {
 	matchAllQ := NewMatchAllQuery()
-	rescorerQuery := NewMatchQuery("field1", "the quick brown fox").Type("phrase").Slop(2)
+	rescorerQuery := NewMatchPhraseQuery("field1", "the quick brown fox").Slop(2)
 	rescorer := NewQueryRescorer(rescorerQuery)
 	rescorer = rescorer.QueryWeight(0.7)
 	rescorer = rescorer.RescoreQueryWeight(1.2)
@@ -193,7 +193,7 @@ func TestSearchSourceRescoring(t *testing.T) {
 		t.Fatalf("marshaling to JSON failed: %v", err)
 	}
 	got := string(data)
-	expected := `{"query":{"match_all":{}},"rescore":{"query":{"query_weight":0.7,"rescore_query":{"match":{"field1":{"query":"the quick brown fox","slop":2,"type":"phrase"}}},"rescore_query_weight":1.2},"window_size":50}}`
+	expected := `{"query":{"match_all":{}},"rescore":{"query":{"query_weight":0.7,"rescore_query":{"match_phrase":{"field1":{"query":"the quick brown fox","slop":2}}},"rescore_query_weight":1.2},"window_size":50}}`
 	if got != expected {
 		t.Errorf("expected\n%s\n,got:\n%s", expected, got)
 	}
@@ -253,6 +253,42 @@ func TestSearchSourceInnerHits(t *testing.T) {
 	}
 	got := string(data)
 	expected := `{"inner_hits":{"comments":{"type":{"comment":{"query":{"match":{"user":{"query":"olivere"}}}}}},"views":{"path":{"view":{}}}},"query":{"match_all":{}}}`
+	if got != expected {
+		t.Errorf("expected\n%s\n,got:\n%s", expected, got)
+	}
+}
+
+func TestSearchSourceSearchAfter(t *testing.T) {
+	matchAllQ := NewMatchAllQuery()
+	builder := NewSearchSource().Query(matchAllQ).SearchAfter(1463538857, "tweet#654323")
+	src, err := builder.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(src)
+	if err != nil {
+		t.Fatalf("marshaling to JSON failed: %v", err)
+	}
+	got := string(data)
+	expected := `{"query":{"match_all":{}},"search_after":[1463538857,"tweet#654323"]}`
+	if got != expected {
+		t.Errorf("expected\n%s\n,got:\n%s", expected, got)
+	}
+}
+
+func TestSearchSourceProfiledQuery(t *testing.T) {
+	matchAllQ := NewMatchAllQuery()
+	builder := NewSearchSource().Query(matchAllQ).Profile(true)
+	src, err := builder.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(src)
+	if err != nil {
+		t.Fatalf("marshaling to JSON failed: %v", err)
+	}
+	got := string(data)
+	expected := `{"profile":true,"query":{"match_all":{}}}`
 	if got != expected {
 		t.Errorf("expected\n%s\n,got:\n%s", expected, got)
 	}
