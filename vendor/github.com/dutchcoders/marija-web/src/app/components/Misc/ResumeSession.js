@@ -33,7 +33,9 @@ class ResumeSession extends Component {
         const { dispatch } = this.props;
 
         fields.forEach(field => {
-            dispatch(fieldAdd(field));
+            dispatch(fieldAdd({
+                path: field
+            }));
         });
     }
 

@@ -9,3 +9,7 @@ export { default as getNodesForDisplay } from './getNodesForDisplay';
 export { default as removeDeadLinks } from './removeDeadLinks';
 export { default as applyVia } from './applyVia';
 export { default as getQueryColor } from './getQueryColor';
+export { default as getRelatedNodes } from './getRelatedNodes';
+export { default as abbreviateNodeName } from './abbreviateNodeName';
+export { default as getConnectedComponents } from './getConnectedComponents';
+export { default as filterSecondaryComponents } from './filterSecondaryComponents';

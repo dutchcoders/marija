@@ -2,29 +2,6 @@ input[placeholder] {
     opacity: 1;
 }
 
-nav#searchbox .form-group {
-    margin-bottom: 0px;
-}
-
-nav#searchbox .form-control {
-    color: $input-color;
-    box-sizing: border-box;
-    height: 32px;
-    background-color: $input-background-color;
-    border-radius: 0px;
-    box-shadow: none;
-    outline: none;
-    border-color: $input-border-color;
-    margin: 20px 15px 0;
-
-    &:focus {
-        color: $input-color-focus;
-        outline: none;
-        box-shadow: none;
-        border-color: $input-border-color-focus;
-    }
-}
-
 .loader {
 	margin-top: 20px;
 
@@ -68,38 +45,91 @@ i.settings {
     color: $input-color-focus;
 }
 
-.search-container{
-    max-width: calc(100% - 100px);
-    width: 600px;
-    float:left;
-    margin: -15px 0px;
-    height: 72px;
-    box-sizing: border-box;
+.queriesContainer {
+    display: flex;
+    flex-wrap: wrap;
+}
 
-    .form-group{
-        input{
-            font-size: 18px;
-            margin: 15px 0px;
-            padding-left: 35px;
-            margin-left: 25px;
-        }
+.queryInput {
+    box-sizing: border-box;
+    height: 34px;
+    background-color: $input-background-color;
+    outline: none;
+    border: none;
+    font-size: 18px;
+    background: url(../images/search-icon.png) center left no-repeat;
+    background-size: 22px 21px;
+    padding-left: 30px;
+    color: #fff;
+    margin: 0 0 10px 20px;
+    width: 200px;
+
+    &:focus {
+        color: $input-color-focus;
+        outline: none;
+        box-shadow: none;
+        border-color: $input-border-color-focus;
+    }
+
+    &::placeholder {
+        color: #fff;
     }
 }
 
-nav#searchbox {
-    ::-webkit-input-placeholder {
-        color: #fff !important
+.query {
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin: 0 0 10px 10px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+
+    i {
+        font-size: 18px;
+        padding-left: 5px;
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+
+        &.disabled {
+            opacity: .5;
+        }
     }
 
-    :-moz-placeholder { /* Firefox 18- */
-        color: #fff !important;
+    .count {
+        display: inline-block;
+        width: 60px;
     }
 
-    ::-moz-placeholder {  /* Firefox 19+ */
-        color: #fff !important;   
+    &.loading:before {
+        content: '';
+        display: block;
+        position: absolute;
+        height: 100%;
+        width: 30px;
+        background: white;
+        left: 0;
+        top: 0;
+        animation: move 2s linear infinite;
+        z-index: 0;
     }
 
-    :-ms-input-placeholder {  
-        color: #fff !important; 
+    nav#searchbox {
+        ::-webkit-input-placeholder {
+            color: #fff !important
+        }
+
+        :-moz-placeholder { /* Firefox 18- */
+            color: #fff !important;
+        }
+
+        ::-moz-placeholder {  /* Firefox 19+ */
+            color: #fff !important;
+        }
+
+        :-ms-input-placeholder {
+            color: #fff !important;
+        }
     }
 }

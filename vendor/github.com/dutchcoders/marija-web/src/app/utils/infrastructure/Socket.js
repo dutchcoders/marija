@@ -10,6 +10,30 @@ import {searchCompleted} from "../../modules/search/actions";
 
 export const Socket = {
     ws: null,
+    searchResults: {},
+    searchTimeouts: {},
+    searchReceive: (results, query, dispatch) => {
+        if (results === null) {
+            return;
+        }
+
+        let prevResults = [];
+        if (Socket.searchResults[query]) {
+            prevResults = Socket.searchResults[query];
+        }
+
+        Socket.searchResults[query] = prevResults.concat(results);
+        clearTimeout(Socket.searchTimeouts[query]);
+
+        Socket.searchTimeouts[query] = setTimeout(() => {
+            dispatch(searchReceive({
+                results: Socket.searchResults[query],
+                query: query,
+            }));
+
+            delete Socket.searchResults[query];
+        }, 500);
+    },
     wsDispatcher: (message, dispatch) => {
         if (message.error) {
             return dispatch(error(message.error.message));
@@ -17,10 +41,7 @@ export const Socket = {
 
         switch (message.type) {
             case SEARCH_RECEIVE:
-                dispatch(searchReceive({
-                    results: message.results,
-                    query: message.query,
-                }));
+                Socket.searchReceive(message.results, message.query, dispatch);
                 break;
 
             case INDICES_RECEIVE:

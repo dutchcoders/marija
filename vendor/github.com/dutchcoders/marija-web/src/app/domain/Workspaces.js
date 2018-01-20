@@ -45,7 +45,8 @@ export default class Workspaces {
                         links: [],
                         searches: [],
                         nodesForDisplay: [],
-                        linksForDisplay: []
+                        linksForDisplay: [],
+                        highlight_nodes: []
                     }
                 }
             });

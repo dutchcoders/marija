@@ -1,12 +1,9 @@
 import React, { Component } from 'react';
 import {connect} from 'react-redux';
-
+import {saveAs} from 'file-saver';
 import { forEach, uniqWith, reduce, find, findIndex, pull, concat, map } from 'lodash';
-
 import { Record, RecordDetail, Icon } from '../index';
-import { highlightNodes} from '../../modules/graph/index';
 import { tableColumnAdd, tableColumnRemove } from '../../modules/data/index';
-import { fieldLocator, normalize } from '../../helpers/index';
 
 class TableView extends React.Component {
     constructor(props) {
@@ -83,8 +80,10 @@ class TableView extends React.Component {
         const { columns, searches, dispatch} = this.props;
         const { items } = this.state;
 
-        return map(items, (record) => {
+        return map(items, (record, i) => {
                 const expanded = (findIndex(this.state.expandedItems, function(o) { return o == record.id; }) >= 0);
+                const className = i % 2 === 0 ? 'odd' : 'even';
+
                 return [
                     <Record
                         columns={ columns }
@@ -92,6 +91,7 @@ class TableView extends React.Component {
                         searches={ searches }
                         toggleExpand = { this.toggleExpand.bind(this) }
                         expanded = { expanded }
+                        className={className}
                     />,
                     <RecordDetail
                         columns={ columns }
@@ -99,6 +99,7 @@ class TableView extends React.Component {
                         onTableAddColumn={(field) => this.handleTableAddColumn(field) }
                         onTableRemoveColumn={(field) => this.handleTableRemoveColumn(field) }
                         expanded = { expanded }
+                        className={className}
                     />
                 ];
         });
@@ -118,9 +119,45 @@ class TableView extends React.Component {
         });
     }
 
+    exportCsv() {
+        const { items } = this.state;
+        const { columns } = this.props;
+        const table = [];
+        const delimiter = '|';
+
+        table.push(columns.join(delimiter));
+
+        items.forEach(item => {
+            const row = [];
+            columns.forEach(column => row.push(item.fields[column]));
+            table.push(row.join(delimiter));
+        });
+
+        const csv = table.join("\n");
+
+        const blob = new Blob(
+            [csv],
+            {type: "text/csv;charset=utf-8"}
+        );
+
+        const now = new Date();
+        const dateString = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
+        const filename = 'marija-export-table-' + dateString + '.csv';
+
+        saveAs(blob, filename);
+    }
+
     render() {
+        const { items } = this.state;
+
+        if (!items.length) {
+            return <p>Select some nodes first</p>;
+        }
+
         return (
             <div className="form-group">
+                <button className="btn btn-primary pull-right" onClick={this.exportCsv.bind(this)}>Export as CSV</button>
+
                 <table>
                     <tbody>
                     <tr>

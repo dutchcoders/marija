@@ -1,5 +1,5 @@
 import { slice, concat, without, reduce, remove, assign, find, forEach, union, filter, uniqBy } from 'lodash';
-import {fieldLocator, normalize} from "./index";
+import {abbreviateNodeName, fieldLocator, normalize} from "./index";
 
 function getHash(string) {
     let hash = 0, i, chr;
@@ -74,6 +74,7 @@ export default function getNodesAndLinks(previousNodes, previousLinks, items, fi
                         items: [d.id],
                         count: d.count,
                         name: normalizedSourceValue,
+                        abbreviated: abbreviateNodeName(normalizedSourceValue, query, 40),
                         description: '',
                         icon: source.icon,
                         fields: [source.path],
@@ -129,6 +130,7 @@ export default function getNodesAndLinks(previousNodes, previousLinks, items, fi
                                 items: [d.id],
                                 count: d.count,
                                 name: normalizedTargetValue,
+                                abbreviated: abbreviateNodeName(normalizedTargetValue, query, 40),
                                 description: '',
                                 icon: [target.icon],
                                 fields: [target.path],

@@ -6,7 +6,7 @@ import { map, uniq, filter, concat, without, find, differenceWith, sortBy } from
 import { Icon } from '../index';
 import { clearSelection, highlightNodes, nodeUpdate, nodesSelect, deleteNodes, deselectNodes} from '../../modules/graph/index';
 import { tableColumnAdd, tableColumnRemove } from '../../modules/data/index';
-import { fieldLocator } from '../../helpers/index';
+import { fieldLocator, getRelatedNodes } from '../../helpers/index';
 
 import SkyLight from 'react-skylight';
 
@@ -79,16 +79,11 @@ class Nodes extends React.Component {
     handleFindSelectChange(n, event) {
         const { dispatch } = this.props;
 
-        let { node } = this.props;
         if (event.target.checked) {
-            node = concat(node, n);
+            dispatch(nodesSelect([n]));
         } else {
-            node = filter(node, (o) => {
-                return (o.id !== n.id);
-            });
+            dispatch(deselectNodes([n]));
         }
-
-        dispatch(nodesSelect(node));
     }
 
     handleSelectAllNodes() {
@@ -100,49 +95,8 @@ class Nodes extends React.Component {
     handleSelectRelatedNodes() {
         const { dispatch, node, nodes, links } = this.props;
 
-        const related_nodes = [];
-
-
-        let x = (n) => {
-            related_nodes.push(n);
-
-            for (let link of links) {
-                if (link.source === n.id) {
-                    // check if already visited
-                    if (find(related_nodes, (o) => {
-                        return (link.target === o.id);
-                    })) {
-                        continue;
-                    }
-
-                    const target_node = find(nodes, (n2) => {
-                        return (link.target == n2.id);
-                    });
-
-                    x(target_node);
-                }
-
-                if (link.target === n.id) {
-                    if (find(related_nodes, (o) => {
-                        return (link.source === o.id);
-                    })) {
-                        continue;
-                    }
-
-                    const source_node = find(nodes, (n2) => {
-                        return (link.source == n2.id);
-                    });
-
-                    x(source_node);
-                }
-            }
-        };
-
-        for (let n of node) {
-            x(n);
-        }
-
-        dispatch(nodesSelect(related_nodes));
+        const relatedNodes = getRelatedNodes(node, nodes, links);
+        dispatch(nodesSelect(relatedNodes));
     }
 
     handleNodeChangeName(event) {
@@ -158,6 +112,18 @@ class Nodes extends React.Component {
         dispatch(deleteNodes(node));
     }
 
+    displayTooltip(node) {
+        const { dispatch } = this.props;
+
+        dispatch(highlightNodes([node]));
+    }
+
+    hideTooltip() {
+        const { dispatch } = this.props;
+
+        dispatch(highlightNodes([]));
+    }
+
     renderSelected() {
         const { node } = this.props;
         const { editNode, value } = this.state;
@@ -166,9 +132,10 @@ class Nodes extends React.Component {
             node.length > 0?
                 map(sortBy(node, ['name']), (i_node) => {
                         return (
-                            <li key={i_node.id}>
+                            <li key={i_node.id} onMouseEnter={() => this.displayTooltip(i_node)}>
                                 <div>
-                                    <span>{i_node.name}</span>
+                                    <span className="nodeIcon">{ i_node.icon }</span>
+                                    <span>{i_node.abbreviated}</span>
                                     <Icon style={{'marginRight': '60px'}}  className="glyphicon" name={ i_node.icon[0] }></Icon>
                                     <Icon style={{'marginRight': '40px'}} onClick={(n) => this.handleEditNode(i_node)} name="ion-ios-remove-circle-outline"/>
                                     <Icon style={{'marginRight': '20px'}} onClick={(n) => this.handleDeselectNode(i_node)} name="ion-ios-remove-circle-outline"/>
@@ -184,10 +151,33 @@ class Nodes extends React.Component {
         );
     }
 
+    getSearchResults() {
+        const { nodes } = this.props;
+        const { find_value } = this.state;
+
+        return nodes.filter((node) => node.name.toLowerCase().indexOf(find_value) !== -1);
+    }
+
+    handleSelectMultiple(e, nodes) {
+        e.preventDefault();
+
+        const { dispatch, node } = this.props;
+        const searchResults = this.getSearchResults();
+
+        dispatch(nodesSelect(nodes));
+    }
+
+    handleDeselectMultiple(e, nodes) {
+        e.preventDefault();
+
+        const { dispatch } = this.props;
+
+        dispatch(deselectNodes(nodes));
+    }
 
     render() {
         const { editNode, find_value, value, description } = this.state;
-        const { node, nodes } = this.props;
+        const { node } = this.props;
 
         const updateNodeDialogStyles = {
             backgroundColor: '#fff',
@@ -198,10 +188,30 @@ class Nodes extends React.Component {
             marginLeft: '-200px',
         };
 
-        const find_nodes = map(nodes.filter((node) => node.name.toLowerCase().indexOf(find_value) != -1), (node) => {
+        const searchResults = this.getSearchResults();
+        const notSelectedNodes = [];
+        const selectedNodes = [];
+
+        searchResults.forEach(search => {
+            const inSelection = node.find(nodeLoop => nodeLoop.id === search.id);
+
+            if (typeof inSelection === 'undefined') {
+                notSelectedNodes.push(search);
+            } else {
+                selectedNodes.push(search);
+            }
+        });
+
+        const find_nodes = map(searchResults, (node) => {
             const found = find(this.props.node, (n) => n.id === node.id);
             const checked = (typeof found !== 'undefined');
-            return <li key={node.id}><input type='checkbox' checked={checked}  onChange={ (e) => this.handleFindSelectChange(node, e) } /> { node.name }</li>;
+            return (
+                <li key={node.id}>
+                    <input type='checkbox' checked={checked}  onChange={ (e) => this.handleFindSelectChange(node, e) } />
+                    <span className="nodeIcon">{node.icon}</span>
+                    { node.abbreviated }
+                </li>
+            );
         });
 
         let edit_node = null;
@@ -222,15 +232,15 @@ class Nodes extends React.Component {
         return (
             <div className="form-group toolbar">
                 <div className="nodes-btn-group" role="group">
-                    <button type="button" className="btn btn-default" aria-label="Clear selection" onClick={() => this.handleClearSelection()}>clear</button>
+                    <button type="button" className="btn btn-default" aria-label="Clear selection" onClick={() => this.handleClearSelection()}>deselect</button>
                     <button type="button" className="btn btn-default" aria-label="Select related nodes" onClick={() => this.handleSelectRelatedNodes()}>related</button>
                     <button type="button" className="btn btn-default" aria-label="Find nodes" onClick={() => this.handleFindNodes()}>find</button>
                     <button type="button" className="btn btn-default" aria-label="Select all nodes" onClick={() => this.handleSelectAllNodes()}>all</button>
                     <button type="button" className="btn btn-default" aria-label="Delete selected nodes" onClick={() => this.handleDeleteAllNodes()}>delete</button>
-                    <button type="button" className="btn btn-default" aria-label="Delete but selected nodes" onClick={() => this.handleDeleteAllButSelectedNodes()}>inverse delete</button>
+                    <button type="button" className="btn btn-default" aria-label="Delete but selected nodes" onClick={() => this.handleDeleteAllButSelectedNodes()}>delete others</button>
                 </div>
                 <div>
-                    <ul>
+                    <ul onMouseLeave={this.hideTooltip.bind(this)}>
                         {this.renderSelected()}
                     </ul>
                 </div>
@@ -241,9 +251,11 @@ class Nodes extends React.Component {
                     <div>
                         <form>
                             <input type="text" className="form-control" value={find_value} onChange={ this.handleFindNodeChange.bind(this) } placeholder='find node' />
-                            <ul>
+                            <ul className="nodesSearchResult">
                                 { find_nodes }
                             </ul>
+                            <button className="nodeSelectButton" onClick={e => this.handleSelectMultiple(e, notSelectedNodes)}>Select all ({notSelectedNodes.length})</button>
+                            <button className="nodeSelectButton" onClick={e => this.handleDeselectMultiple(e, selectedNodes)}>Deselect all ({selectedNodes.length})</button>
                         </form>
                     </div>
                 </SkyLight>

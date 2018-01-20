@@ -9,7 +9,7 @@ export { default as Nodes } from './Table/Nodes';
 export { default as Histogram } from './Graphs/Histogram';
 export { default as Graph } from './Graphs/Graph';
 export { default as GraphPixi } from './Graphs/GraphPixi';
-export { default as Queries } from './Graphs/Queries';
+export { default as Query } from './Graphs/Query';
 
 export { default as Icon } from './Misc/Icon';
 export { Pane } from './Misc/Pane';

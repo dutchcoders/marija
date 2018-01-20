@@ -1,4 +1,4 @@
-import { SEARCH_RECEIVE, SEARCH_REQUEST, SEARCH_DELETE, DISPLAY_LESS, SET_DISPLAY_NODES, SEARCH_COMPLETED } from './index';
+import { SEARCH_RECEIVE, SEARCH_REQUEST, SEARCH_DELETE, DISPLAY_LESS, SEARCH_EDIT, SEARCH_COMPLETED } from './index';
 
 const defaultOpts = {
     from: 0,
@@ -44,11 +44,11 @@ export function deleteSearch(opts) {
     };
 }
 
-export function setDisplayNodes(query, newAmount) {
+export function editSearch(query, opts) {
     return {
-        type: SET_DISPLAY_NODES,
+        type: SEARCH_EDIT,
         receivedAt: Date.now(),
         query: query,
-        newAmount: newAmount
+        opts: opts
     };
 }

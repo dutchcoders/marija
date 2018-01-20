@@ -62,8 +62,6 @@ export default class Record extends Component {
         const expandedFields = map(allFields, (value, key) => {
             const highlight =  (record.highlight || {});
             const field_value = highlight[value] || fieldLocator(record.fields, value) ;
-
-            const clean = DOMPurify.sanitize(field_value, { ALLOWED_TAGS: ['p', 'br', 'em']});
             return (
                 <tr key={ 'field_' + value }>
                     <td width="110">{value}
@@ -71,31 +69,31 @@ export default class Record extends Component {
                             name="ion-ios-plus"
                             style={{marginLeft: '8px', lineHeight: '20px', fontSize: '12px'}}/>
                     </td>
-                    <td colSpan="3" dangerouslySetInnerHTML={{ __html: clean }}></td>
+                    <td colSpan="3">{field_value}</td>
                 </tr>
             );
         });
 
-        return ([
-            <td key={1}>
-            </td>,
-            <td colSpan={columns.length ? columns.length : 1 } key={2}>
-                <table className="details">
-                    <tbody>{ expandedFields }</tbody>
-                </table>
+        return (
+            <td colSpan={columns.length + 1}>
+                <div className="details">
+                    <table>
+                        <tbody>{ expandedFields }</tbody>
+                    </table>
+                </div>
             </td>
-        ]);
+        );
     }
 
 
     render() {
-        const { record, columns, node, expanded } = this.props;
+        const { record, columns, node, expanded, className } = this.props;
         if (!expanded) {
             return null;
         }
 
         return (
-            <tr>
+            <tr className={className + ' recordDetail'}>
                 { this.renderDetails(columns) }
             </tr>
         );

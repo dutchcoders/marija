@@ -35,7 +35,7 @@
   branch = "master"
   name = "github.com/dutchcoders/marija-web"
   packages = ["."]
-  revision = "e1a093f2ee527aa1bdcfafbd6a5015824bb19e75"
+  revision = "41cc856b01a7d34c8c0e31345e98a9bc787399fc"
 
 [[projects]]
   branch = "master"

@@ -2,8 +2,10 @@ const webpack = require('webpack');
 const path = require('path');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const dotenv = require('dotenv');
+const { gitDescribeSync } = require('git-describe');
 
 dotenv.config();
+const gitInfo = gitDescribeSync();
 
 module.exports = {
     entry: './src/app/main.js',
@@ -14,7 +16,8 @@ module.exports = {
         new webpack.DefinePlugin({
             "process.env": { 
                 NODE_ENV: JSON.stringify(process.env.NODE_ENV || "development"),
-                WEBSOCKET_URI: process.env.WEBSOCKET_URI ? JSON.stringify(process.env.WEBSOCKET_URI) : null
+                WEBSOCKET_URI: process.env.WEBSOCKET_URI ? JSON.stringify(process.env.WEBSOCKET_URI) : null,
+                CLIENT_VERSION: JSON.stringify(gitInfo.raw)
             }
         })
     ],

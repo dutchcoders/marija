@@ -198,16 +198,24 @@ class Histogram extends React.Component {
     }
 
     render() {
-        const { items, containerHeight, containerWidth } = this.props;
+        const { items, containerHeight, containerWidth, date_fields } = this.props;
 
         let noitems = null; 
-        if (items.length == 0) {
-            noitems = <div>No items</div>;
+        if (items.length === 0) {
+            noitems = <p>No search results available.</p>;
+        }
+
+        let noDateFields = null;
+        if (date_fields.length === 0 && items.length > 0) {
+            noDateFields = (
+                <p>You need to select at least one field of the <strong>date</strong> type in the configuration.</p>
+            );
         }
 
         return (
             <div>
                 { noitems }
+                { noDateFields }
                 <canvas
                     width={ containerWidth }
                     height={ containerHeight }

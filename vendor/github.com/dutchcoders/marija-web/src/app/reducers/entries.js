@@ -5,16 +5,16 @@ import {  ERROR, AUTH_CONNECTED, Socket, SearchMessage, DiscoverIndicesMessage, 
 import {  INDICES_RECEIVE, INDICES_REQUEST } from '../modules/indices/index';
 import {  FIELDS_RECEIVE, FIELDS_REQUEST } from '../modules/fields/index';
 import {  NODES_DELETE, NODES_HIGHLIGHT, NODE_UPDATE, NODE_SELECT, NODES_SELECT, NODES_DESELECT, SELECTION_CLEAR } from '../modules/graph/index';
-import {  SEARCH_DELETE, SEARCH_RECEIVE, SEARCH_REQUEST, SEARCH_COMPLETED, SET_DISPLAY_NODES } from '../modules/search/index';
+import {  SEARCH_DELETE, SEARCH_RECEIVE, SEARCH_REQUEST, SEARCH_COMPLETED, SEARCH_EDIT } from '../modules/search/index';
 import {  TABLE_COLUMN_ADD, TABLE_COLUMN_REMOVE, INDEX_ADD, INDEX_DELETE, FIELD_ADD, FIELD_DELETE, DATE_FIELD_ADD, DATE_FIELD_DELETE, NORMALIZATION_ADD, NORMALIZATION_DELETE, INITIAL_STATE_RECEIVE } from '../modules/data/index';
 
 import {
     normalize, fieldLocator, getNodesForDisplay,
-    removeDeadLinks, applyVia, getQueryColor
+    removeDeadLinks, applyVia, getQueryColor, getConnectedComponents,
+    filterSecondaryComponents
 } from '../helpers/index';
 import getNodesAndLinks from "../helpers/getNodesAndLinks";
 import removeNodesAndLinks from "../helpers/removeNodesAndLinks";
-import getHighlightItem from "../helpers/getHighlightItem";
 import {VIA_ADD, VIA_DELETE} from "../modules/data/constants";
 
 
@@ -27,7 +27,7 @@ export const defaultState = {
     total: 0,
     node: [],
     datasources: [],
-    highlight_nodes: {},
+    highlight_nodes: [],
     columns: [],
     fields: [],
     date_fields: [],
@@ -126,7 +126,7 @@ export default function entries(state = defaultState, action) {
                 nodesForDisplay: nodesForDisplay,
                 linksForDisplay: linksForDisplay,
                 selectedNodes: [],
-                highlight_nodes: {},
+                highlight_nodes: [],
                 node: []
             });
         case TABLE_COLUMN_ADD:
@@ -138,14 +138,14 @@ export default function entries(state = defaultState, action) {
                 columns: without(state.columns, action.field)
             });
         case FIELD_ADD:
-            const existing = state.fields.find(field => field.path === action.path);
+            const existing = state.fields.find(field => field.path === action.field.path);
 
             if (existing) {
                 // Field was already in store, don't add duplicates
                 return state;
             }
 
-            const firstChar = action.path.charAt(0).toUpperCase();
+            const firstChar = action.field.path.charAt(0).toUpperCase();
             const fieldsWithSameChar = state.fields.filter(field => field.icon.indexOf(firstChar) === 0);
             let icon;
 
@@ -158,12 +158,20 @@ export default function entries(state = defaultState, action) {
             }
 
             let newField = {
-                path: action.path,
+                path: action.field.path,
                 icon: icon
             };
 
+            let dateFields = concat([], state.date_fields);
+
+            if (action.field.type === 'date'
+                && typeof dateFields.find(search => search.path === newField.path) === 'undefined') {
+                dateFields.push(newField);
+            }
+
             return Object.assign({}, state, {
-                fields: concat(state.fields, newField)
+                fields: concat(state.fields, newField),
+                date_fields: dateFields
             });
         case FIELD_DELETE:
             return Object.assign({}, state, {
@@ -203,15 +211,8 @@ export default function entries(state = defaultState, action) {
                 date_fields: without(state.date_fields, action.field)
             });
         case NODES_HIGHLIGHT:
-            const highlightItems = {};
-
-            forEach(action.highlight_nodes, node => {
-                const item = Object.assign({}, state.items.find(item => item.id === node.items[0]));
-                highlightItems[node.hash] = getHighlightItem(item, node, state.fields, 50);
-            });
-
             return Object.assign({}, state, {
-                highlight_nodes: highlightItems
+                highlight_nodes: action.highlight_nodes
             });
         case NODES_SELECT:
             const newNodes = [];
@@ -334,6 +335,21 @@ export default function entries(state = defaultState, action) {
                 search,
                 state.normalizations
             );
+
+            result.links = removeDeadLinks(result.nodes, result.links);
+
+            if (state.searches.length > 1) {
+                // If there is more than 1 query, all nodes for subsequent queries
+                // need to be linked to nodes from the first query
+                // If some results are not linked, they will not be displayed as nodes
+
+                const components = getConnectedComponents(result.nodes, result.links);
+                const primaryQuery = state.searches[0].q;
+                const filtered = filterSecondaryComponents(primaryQuery, components);
+                result.nodes = filtered.reduce((prev, current) => prev.concat(current), []);
+                result.links = removeDeadLinks(result.nodes, result.links);
+            }
+
             const { nodes, links } = applyVia(result.nodes, result.links, state.via);
             const nodesForDisplay = getNodesForDisplay(nodes, state.searches || []);
 
@@ -359,7 +375,7 @@ export default function entries(state = defaultState, action) {
             });
         }
         case SEARCH_COMPLETED: {
-            const index = state.searches.findIndex(search => search['request-id'] === action['request-id']);
+            const index = state.searches.findIndex(search => search.requestId === action.requestId);
 
             if (index === -1) {
                 // Could not find out which search was completed
@@ -367,7 +383,7 @@ export default function entries(state = defaultState, action) {
             }
 
             const search = state.searches[index];
-            const newSearch = Object.assign(search, { completed: true });
+            const newSearch = Object.assign({}, search, { completed: true });
             const newSearches = concat([], state.searches);
 
             newSearches[index] = newSearch;
@@ -376,25 +392,25 @@ export default function entries(state = defaultState, action) {
                 searches: newSearches
             });
         }
-        case SET_DISPLAY_NODES: {
+        case SEARCH_EDIT: {
             const searches = concat([], state.searches);
 
             const search = state.searches.find(search => search.q === action.query);
-            const newSearch = Object.assign({}, search, {
-                displayNodes: action.newAmount
-            });
+            const newSearch = Object.assign({}, search, action.opts);
 
             const index = searches.indexOf(search);
             searches[index] = newSearch;
 
-            const nodesForDisplay = getNodesForDisplay(state.nodes, searches);
-            const linksForDisplay = removeDeadLinks(nodesForDisplay, state.links);
+            const updates = {
+                searches: searches
+            };
 
-            return Object.assign({}, state, {
-                searches: searches,
-                nodesForDisplay: nodesForDisplay,
-                linksForDisplay: linksForDisplay
-            });
+            if (search.displayNodes !== newSearch.displayNodes) {
+                updates.nodesForDisplay = getNodesForDisplay(state.nodes, searches);
+                updates.linksForDisplay = removeDeadLinks(updates.nodesForDisplay, state.links);
+            }
+
+            return Object.assign({}, state, updates);
         }
         case INDICES_REQUEST:
             Socket.ws.postMessage(

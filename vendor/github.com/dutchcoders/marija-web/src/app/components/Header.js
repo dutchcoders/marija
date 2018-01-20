@@ -34,7 +34,7 @@ class Header extends Component {
     }
 
     render() {
-        const { connected, itemsFetching, total, indexes, fields, activeIndices } = this.props;
+        const { connected, total, indexes, fields, activeIndices } = this.props;
 
         let errors = null;
 
@@ -45,7 +45,6 @@ class Header extends Component {
         return (
             <header className="row">
                 <SearchBox
-                    itemsFetching={itemsFetching}
                     total={total}
                     onSubmit={(q, index) => this.onSearchSubmit(q, index)}
                     connected={connected}

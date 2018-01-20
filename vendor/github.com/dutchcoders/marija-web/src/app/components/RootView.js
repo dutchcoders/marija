@@ -24,7 +24,7 @@ class RootView extends Component {
 
 
     render() {
-        const { items, panes, dispatch, node, nodes } = this.props;
+        const { items, panes, dispatch, node, nodes, headerHeight } = this.props;
 
         return (
             <div className="container-fluid">
@@ -32,7 +32,7 @@ class RootView extends Component {
 
                 <div className="row">
                     <div className="col-xs-12">
-                        <div className="row" style={{'height': 'calc(100vh - 74px)'}}>
+                        <div className="row" style={{'height': 'calc(100vh - ' + headerHeight + 'px)'}}>
                             <GraphPixi
                                 className="graph"
                                 handleMouseOver={ () => this.handleMouseOver() }
@@ -41,15 +41,28 @@ class RootView extends Component {
                     </div>
                 </div>
 
-                <Pane name="Configuration" handle="configuration" panes={panes} dispatch={dispatch} icon="ion-ios-arrow-forward">
+                <Pane
+                    name="Configuration"
+                    handle="configuration"
+                    panes={panes}
+                    dispatch={dispatch}
+                    icon="ion-ios-arrow-forward"
+                    top={headerHeight}>
                     <ConfigurationView ref="configurationView"/>
                 </Pane>
 
-                <Pane name={`Nodes (${node.length}/${nodes.length})`} handle="nodes" panes={panes} dispatch={dispatch} icon="ion-ios-arrow-back">
+                <Pane
+                    name="Selected nodes"
+                    description={node.length + '/' + nodes.length}
+                    handle="nodes"
+                    panes={panes}
+                    dispatch={dispatch}
+                    icon="ion-ios-arrow-back"
+                    top={headerHeight}>
                     <Nodes />
                 </Pane>
 
-                <Pane name="Table" count={items.length} handle="table" panes={panes} dispatch={dispatch} icon="ion-ios-arrow-back">
+                <Pane name="Table" description={'data for ' + node.length + ' selected nodes'} handle="table" panes={panes} dispatch={dispatch} icon="ion-ios-arrow-back">
                     <TableView />
                 </Pane>
 
@@ -73,7 +86,8 @@ const select = (state, ownProps) => {
         node: state.entries.node,
         nodes: state.entries.nodes,
         links: state.entries.links,
-        panes: state.utils.panes
+        panes: state.utils.panes,
+        headerHeight: state.utils.headerHeight
     };
 };
 export default connect(select)(RootView);

@@ -7,7 +7,7 @@ export default function exportJson(data) {
     );
 
     const now = new Date();
-    const dateString = now.getFullYear() + '-' + now.getMonth() + '-' + now.getDate();
+    const dateString = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
     const filename = 'marija-export-' + dateString + '.json';
 
     saveAs(blob, filename);

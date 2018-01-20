@@ -50,11 +50,11 @@ export function dateFieldDelete(field) {
 }
 
 
-export function fieldAdd(path) {
+export function fieldAdd(field) {
     return {
         type: FIELD_ADD,
         receivedAt: Date.now(),
-        path: path
+        field: field
     };
 }
 

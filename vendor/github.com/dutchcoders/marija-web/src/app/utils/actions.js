@@ -1,4 +1,4 @@
-import {ERROR, AUTH_CONNECTED, OPEN_PANE, CLOSE_PANE, CANCEL_REQUEST} from './index';
+import {ERROR, AUTH_CONNECTED, OPEN_PANE, CLOSE_PANE, CANCEL_REQUEST, HEADER_HEIGHT_CHANGE} from './index';
 
 export function error(msg) {
     return {
@@ -30,10 +30,16 @@ export function openPane(pane) {
     };
 }
 
-
 export function closePane(pane) {
     return {
         type: CLOSE_PANE,
         pane: pane
+    };
+}
+
+export function headerHeightChange(height) {
+    return {
+        type: HEADER_HEIGHT_CHANGE,
+        height: height
     };
 }

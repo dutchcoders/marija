@@ -5,7 +5,10 @@ import Dimensions from 'react-dimensions';
 import * as d3 from 'd3';
 import { concat, debounce, forEach, remove, includes, assign, isEqual, isEmpty } from 'lodash';
 import { nodesSelect, highlightNodes, nodeSelect, deselectNodes } from '../../modules/graph/index';
-import {normalize, fieldLocator, getArcParams} from '../../helpers/index';
+import {
+    normalize, fieldLocator, getArcParams,
+    getRelatedNodes, abbreviateNodeName
+} from '../../helpers/index';
 import Loader from "../Misc/Loader";
 import {Icon} from "../index";
 import * as PIXI from 'pixi.js';
@@ -32,6 +35,7 @@ class GraphPixi extends React.Component {
             renderer: undefined,
             renderedTooltip: undefined,
             renderedSelectedNodes: undefined,
+            selectedNodeTextures: {},
             stage: undefined,
             worker: worker,
             renderedSinceLastTick: false,
@@ -39,13 +43,15 @@ class GraphPixi extends React.Component {
             renderedSinceLastTooltip: false,
             renderedSinceLastSelection: false,
             renderedSinceLastSelectedNodes: false,
+            renderedSinceLastQueries: false,
             transform: d3.zoomIdentity,
             shift: false,
             selecting: false,
             lastLoopTimestamp: new Date(),
             frameTime: 0,
             lastDisplayedFps: new Date(),
-            labelTextures: {}
+            labelTextures: {},
+            tooltipTextures: {}
         };
 
         worker.onmessage = (event) => this.onWorkerMessage(event);
@@ -117,28 +123,23 @@ class GraphPixi extends React.Component {
         });
     }
 
-    getQueryColors() {
+    getQueryColor(query) {
         const { queries } = this.props;
+        const search = queries.find(search => search.q === query);
 
-        const queryColors = {};
-
-        queries.forEach(query => {
-            queryColors[query.q] = query.color;
-        });
-
-        return queryColors;
+        if (typeof search !== 'undefined') {
+            return search.color;
+        }
     }
 
     getNodeTextureKey(node) {
-        const { queryColors } = this.state;
-
         return node.icon
             + node.r
-            + node.queries.map(query => queryColors[query]).join('');
+            + node.queries.map(query => this.getQueryColor(query)).join('');
     }
 
     getNodeTexture(node) {
-        const { nodeTextures, queryColors } = this.state;
+        const { nodeTextures } = this.state;
 
         let texture = nodeTextures[node.textureKey];
 
@@ -157,7 +158,8 @@ class GraphPixi extends React.Component {
 
         node.queries.forEach((query, i) => {
             ctx.beginPath();
-            ctx.fillStyle = queryColors[query];
+            ctx.fillStyle = this.getQueryColor(query);
+            ctx.moveTo(node.r, node.r);
             ctx.arc(node.r, node.r, node.r, currentAngle, currentAngle + anglePerQuery);
             ctx.fill();
 
@@ -369,7 +371,7 @@ class GraphPixi extends React.Component {
     }
 
     componentDidUpdate(prevProps) {
-        const { nodesForDisplay, highlight_nodes, selectedNodes } = this.props;
+        const { nodesForDisplay, highlight_nodes, selectedNodes, queries } = this.props;
 
         if (!isEqual(prevProps.selectedNodes, selectedNodes)) {
             this.setState({
@@ -380,6 +382,13 @@ class GraphPixi extends React.Component {
         if (!isEqual(prevProps.highlight_nodes, highlight_nodes)) {
             this.setState({
                 renderedSinceLastTooltip: false
+            });
+        }
+
+        if (!isEqual(prevProps.queries, queries)) {
+            this.setState({
+                renderedSinceLastQueries: false,
+                nodeTextures: {}
             });
         }
 
@@ -418,18 +427,10 @@ class GraphPixi extends React.Component {
             });
         });
 
-        const queryColors = this.getQueryColors();
-
-        this.setState({ queryColors: queryColors }, () => {
-            // The nodes can only be posted to the worker once the colors
-            // are updated, otherwise we might run into a race condition
-            // due to undefined colors while rendering
-
-            this.postWorkerMessage({
-                type: 'update',
-                nodes: nodesToPost,
-                links: linksToPost
-            });
+        this.postWorkerMessage({
+            type: 'update',
+            nodes: nodesToPost,
+            links: linksToPost
         });
     }
 
@@ -470,59 +471,104 @@ class GraphPixi extends React.Component {
         }
     }
 
+    getTooltipTexture(node) {
+        const { tooltipTextures, renderer } = this.state;
+
+        const key = node.name + node.fields.join('');
+        let texture = tooltipTextures[key];
+
+        if (typeof texture !== 'undefined') {
+            return texture;
+        }
+
+        const container = new PIXI.Container();
+        const description = node.fields.join(', ') + ': ' + node.abbreviated;
+        const text = new PIXI.Text(description, {
+            fontFamily: 'Arial',
+            fontSize: '12px',
+            fill: '#ffffff'
+        });
+
+        text.x = 10;
+        text.y = 5;
+
+        const backgroundWidth = text.width + 20;
+        const backgroundHeight = text.height + 10;
+        const background = new PIXI.Graphics();
+        background.beginFill(0x35394d, 1);
+        background.lineStyle(1, 0x323447, 1);
+        background.drawRoundedRect(0, 0, backgroundWidth, backgroundHeight, 14);
+
+        container.addChild(background);
+        container.addChild(text);
+
+        texture = PIXI.RenderTexture.create(backgroundWidth, backgroundHeight);
+        renderer.render(container, texture);
+
+        this.setState({
+            tooltipTextures: {
+                [key]: texture
+            }
+        });
+
+        return texture;
+    }
+
     renderTooltip() {
-        const { renderedTooltip } = this.state;
+        const { renderedTooltip, nodesFromWorker, transform } = this.state;
         const { highlight_nodes } = this.props;
 
         renderedTooltip.removeChildren();
 
-        if (isEmpty(highlight_nodes)) {
+        if (highlight_nodes.length === 0) {
             return;
         }
 
-        const tooltip = highlight_nodes[Object.keys(highlight_nodes)[0]];
-        let text = '<heading>' + tooltip.query + "</heading>\n";
+        highlight_nodes.forEach(node => {
+            const nodeFromWorker = nodesFromWorker.find(search => search.hash === node.hash);
 
-        forEach(tooltip.fields, (value, path) => {
-            const isMain = tooltip.matchFields.indexOf(path) !== -1;
-
-            if (isMain) {
-                text += '<bold>';
+            if (typeof nodeFromWorker === 'undefined') {
+                return;
             }
 
-            text += path + ': ' + (value === null ? '' : value);
+            const texture = this.getTooltipTexture(node);
+            const sprite = new PIXI.Sprite(texture);
 
-            if (isMain) {
-                text += '</bold>';
-            }
+            sprite.x = transform.applyX(nodeFromWorker.x);
+            sprite.y = transform.applyY(nodeFromWorker.y);
 
-            text += "\n";
+            renderedTooltip.addChild(sprite);
         });
+    }
 
-        const styled = new MultiStyleText(text, {
-            default: {
-                fontFamily: 'Arial',
-                fontSize: '14px',
-                fill: '#000000',
-                align: 'left'
-            },
-            bold: {
-                fontStyle: 'bold',
-            },
-            heading: {
-                fontSize: '18px',
+    getSelectedNodeTexture(radius) {
+        const { selectedNodeTextures } = this.state;
+        let texture = selectedNodeTextures[radius];
+
+        if (texture) {
+            return texture;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = radius * 2 + 4;
+        canvas.height = radius * 2 + 4;
+
+        const ctx = canvas.getContext('2d');
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.arc(radius + 2, radius + 2, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        texture = PIXI.Texture.fromCanvas(canvas);
+
+        this.setState(prevState => ({
+            selectedNodeTextures: {
+                ...prevState.selectedNodeTextures,
+                [radius]: texture
             }
-        });
+        }));
 
-        styled.x = tooltip.x + 5;
-        styled.y = tooltip.y + 5;
-
-        const background = new PIXI.Graphics();
-        background.beginFill(0xFFFFFF, .8);
-        background.drawRect(tooltip.x, tooltip.y, styled.width + 10, styled.height);
-
-        renderedTooltip.addChild(background);
-        renderedTooltip.addChild(styled);
+        return texture;
     }
 
     /**
@@ -532,15 +578,24 @@ class GraphPixi extends React.Component {
         const { selectedNodes } = this.props;
         const { nodesFromWorker, renderedSelectedNodes } = this.state;
 
-        renderedSelectedNodes.clear();
-        renderedSelectedNodes.lineStyle(3, 0xFFFFFF);
+        renderedSelectedNodes.removeChildren();
 
         selectedNodes.forEach(selected => {
             const nodeFromWorker = nodesFromWorker.find(search => search.hash === selected.hash);
 
-            if (typeof nodeFromWorker !== 'undefined') {
-                renderedSelectedNodes.drawCircle(nodeFromWorker.x, nodeFromWorker.y, nodeFromWorker.r);
+            if (typeof nodeFromWorker === 'undefined') {
+                return;
             }
+
+            const texture = this.getSelectedNodeTexture(nodeFromWorker.r);
+            const sprite = new PIXI.Sprite(texture);
+
+            sprite.anchor.x = 0.5;
+            sprite.anchor.y = 0.5;
+            sprite.x = nodeFromWorker.x;
+            sprite.y = nodeFromWorker.y;
+
+            renderedSelectedNodes.addChild(sprite);
         });
     }
 
@@ -558,12 +613,15 @@ class GraphPixi extends React.Component {
         const stateUpdates = {};
 
         if (shouldRender('renderedSinceLastTick')
-            || shouldRender('renderedSinceLastZoom')) {
+            || shouldRender('renderedSinceLastZoom')
+            || shouldRender('renderedSinceLastQueries')) {
             this.renderNodes();
             this.renderLinks();
+            this.renderTooltip();
 
             stateUpdates.renderedSinceLastTick = true;
             stateUpdates.renderedSinceLastZoom = true;
+            stateUpdates.renderedSinceLastQueries = true;
         }
 
         if (shouldRender('renderedSinceLastSelection')) {
@@ -609,8 +667,6 @@ class GraphPixi extends React.Component {
     initGraph() {
         const { width, height } = this.pixiContainer.getBoundingClientRect();
 
-        console.log('init', width, height);
-
         const renderer = PIXI.autoDetectRenderer({
             antialias: true,
             transparent: false,
@@ -637,7 +693,7 @@ class GraphPixi extends React.Component {
         const renderedSelection = new PIXI.Graphics();
         stage.addChild(renderedSelection);
 
-        const renderedSelectedNodes = new PIXI.Graphics();
+        const renderedSelectedNodes = new PIXI.Container();
         stage.addChild(renderedSelectedNodes);
 
         const renderedTooltip = new PIXI.Container();
@@ -783,29 +839,19 @@ class GraphPixi extends React.Component {
 
     highlightNode(node) {
         const { highlight_nodes, dispatch } = this.props;
-        const { nodesFromWorker, transform } = this.state;
 
-        if ((typeof node === 'undefined' && isEmpty(highlight_nodes))
-            || (typeof node !== 'undefined' && typeof highlight_nodes[node.hash] !== 'undefined')) {
-            // nothing changed
+        if (typeof node === 'undefined' && !isEmpty(highlight_nodes)) {
+            dispatch(highlightNodes([]));
             return;
         }
 
-        let newHighlightNodes = {};
-
         if (typeof node !== 'undefined') {
-            const nodeFromWorker = nodesFromWorker.find(search => search.hash === node.hash);
+            const current = highlight_nodes.find(search => search.hash === node.hash);
 
-            newHighlightNodes = {
-                [node.hash]: {
-                    ...node,
-                    x: transform.applyX(nodeFromWorker.x),
-                    y: transform.applyY(nodeFromWorker.y)
-                }
-            };
+            if (typeof current === 'undefined') {
+                dispatch(highlightNodes([node]));
+            }
         }
-
-        dispatch(highlightNodes(newHighlightNodes));
     }
 
     selectNodes(nodes) {
@@ -970,6 +1016,7 @@ class GraphPixi extends React.Component {
     render() {
         const { itemsFetching, version } = this.props;
         const { selecting, frameTime } = this.state;
+        const clientVersion = process.env.CLIENT_VERSION;
 
         return (
             <div className="graphComponent">
@@ -984,7 +1031,8 @@ class GraphPixi extends React.Component {
                 <Loader show={itemsFetching} classes={['graphLoader']}/>
                 <p className="stats">
                     {(1000/frameTime).toFixed(1)} FPS<br />
-                    VERSION: {version}
+                    SERVER VERSION: {version}<br />
+                    CLIENT VERSION: {clientVersion}
                 </p>
             </div>
         );

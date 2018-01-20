@@ -16,6 +16,8 @@ import {saveAs} from 'file-saver';
 import {exportData, importData} from "../../modules/import/actions";
 
 class ConfigurationView extends React.Component {
+    defaultMaxSearchResults = 10;
+
     constructor(props) {
         super(props);
 
@@ -26,7 +28,9 @@ class ConfigurationView extends React.Component {
             selectedFrom: '',
             selectedVia: '',
             selectedTo: '',
-            viaError: null
+            viaError: null,
+            searchTypes: [],
+            maxSearchResults: this.defaultMaxSearchResults
         };
     }
 
@@ -47,16 +51,22 @@ class ConfigurationView extends React.Component {
         }
     }
 
-    handleAddField(path) {
+    handleAddField(field) {
         const { dispatch } = this.props;
 
-        Url.addQueryParam('fields', path);
+        Url.addQueryParam('fields', field.path);
 
-        dispatch(fieldAdd(path));
+        dispatch(fieldAdd({
+            path: field.path,
+            type: field.type
+        }));
     }
 
     handleFieldSearchChange(event) {
-        this.setState({currentFieldSearchValue: event.target.value});
+        this.setState({
+            currentFieldSearchValue: event.target.value,
+            maxSearchResults: this.defaultMaxSearchResults
+        });
     }
 
     handleDateFieldSearchChange(event) {
@@ -289,8 +299,6 @@ class ConfigurationView extends React.Component {
             </form>
         );
 
-
-
         const available = (
             <ul>
                 {slice(availableDateFields.filter((item) => {
@@ -332,9 +340,75 @@ class ConfigurationView extends React.Component {
         );
     }
 
+    types = [
+        {
+            label: 'yes/no',
+            types: ['boolean']
+        },
+        {
+            label: 'date',
+            types: ['date']
+        },
+        {
+            label: 'text',
+            types: ['text', 'keyword']
+        },
+        {
+            label: 'number',
+            types: ['long', 'double']
+        },
+        {
+            label: 'location',
+            types: ['geo_point']
+        },
+    ];
+
+    getTypes(fields) {
+        const types = [];
+
+        fields.forEach(field => {
+            if (types.indexOf(field.type) === -1) {
+                types.push(field.type);
+            }
+        });
+
+        const typeItems = [];
+        types.forEach(type => {
+            const alreadyUsed = typeItems.reduce((prev, item) => prev.concat(item.types), []);
+
+            if (alreadyUsed.indexOf(type) !== -1) {
+                return;
+            }
+
+            const typeItem = this.types.find(search => search.types.indexOf(type) !== -1);
+
+            if (typeItem) {
+                typeItems.push(typeItem);
+            } else {
+                typeItems.push({
+                    label: type,
+                    types: [type]
+                });
+            }
+        });
+
+        return typeItems;
+    }
+
+    handleTypeChange(e, type) {
+        this.setState({
+            searchTypes: type
+        });
+    }
+
+    handleMaxSearchResultsChange(max) {
+        this.setState({
+            maxSearchResults: max
+        });
+    }
 
     renderFields(fields, availableFields) {
-        const { currentFieldSearchValue } = this.state;
+        const { currentFieldSearchValue, searchTypes, maxSearchResults } = this.state;
 
         const options = map(fields, (field) => {
             return (
@@ -346,40 +420,148 @@ class ConfigurationView extends React.Component {
             );
         });
 
+        const types = [{
+            label: 'all types',
+            types: []
+        }].concat(this.getTypes(availableFields));
+
+        const availableFieldsForType = availableFields.filter(item =>
+            searchTypes.length === 0 || searchTypes.indexOf(item.type) !== -1
+        );
+
+        // Only fields that have not already been added
+        let searchResults = availableFieldsForType.filter(field =>
+            typeof fields.find(search => search.path === field.path) === 'undefined'
+        );
+
         const search = (
             <form>
                 <div className="row">
                     <div className="col-xs-12">
-                        <input className="form-control" value={this.state.currentFieldSearchValue}
+                        <input className="form-control searchInput" value={this.state.currentFieldSearchValue}
                                onChange={this.handleFieldSearchChange.bind(this)} type="text" ref="field"
-                               placeholder={'Search ' + availableFields.length + ' fields'} />
+                               placeholder={'Search ' + searchResults.length + ' fields'} />
+                    </div>
+                </div>
+                <div className="row">
+                    <div className="col-xs-12">
+                        <div className="selectType">
+                            {types.map(type => {
+                                const key = 'search_types_' + type.types.join(',');
+
+                                return (
+                                    <div className="form-check form-check-inline" key={key}>
+                                        <input
+                                            type="radio"
+                                            className="form-check-input"
+                                            name="type"
+                                            id={key}
+                                            checked={isEqual(type.types, searchTypes)}
+                                            onChange={(e) => this.handleTypeChange(e, type.types)}
+                                        />
+                                        <label
+                                            className="form-check-label"
+                                            htmlFor={key}>
+                                            {type.label}
+                                        </label>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
                 </div>
             </form>
         );
 
-        const available = (
-            <ul>
-                {slice(availableFields.filter((item) => {
-                    const inSearch = item.path.toLowerCase().indexOf(currentFieldSearchValue.toLowerCase()) === 0;
-                    const inCurrentFields = fields.reduce((value, field) => {
-                        if (value) {
-                            return true;
-                        }
-                        return field.path == item.path;
-                    }, false);
+        if (currentFieldSearchValue) {
+            searchResults = [];
 
-                    return inSearch && !inCurrentFields;
-                }), 0, 10).map((item) => {
+            availableFieldsForType.forEach((item) => {
+                const copy = Object.assign({}, item);
+                copy.occurrenceIndex = copy.path.toLowerCase().indexOf(currentFieldSearchValue.toLowerCase());
+
+                if (copy.occurrenceIndex !== -1) {
+                    searchResults.push(copy);
+                }
+            });
+
+            // Sort by when the search term occurs in the field name (the earlier the better)
+            searchResults.sort((a, b) => a.occurrenceIndex - b.occurrenceIndex);
+        } else {
+            // Sort alphabetically
+            searchResults.sort((a, b) => {
+                // ignore upper and lowercase
+                const nameA = a.path.toUpperCase();
+                const nameB = b.path.toUpperCase();
+                
+                if (nameA < nameB) {
+                    return -1;
+                }
+
+                if (nameA > nameB) {
+                    return 1;
+                }
+
+                // names must be equal
+                return 0;
+            });
+        }
+
+        let numMore = null;
+        let showMore = null;
+        if (searchResults.length > maxSearchResults) {
+            numMore = (
+                <p key={1}>
+                    {searchResults.length - maxSearchResults} more fields
+                </p>
+            );
+
+            showMore = (
+                <button onClick={() => this.handleMaxSearchResultsChange(maxSearchResults + 20)} key={2}>
+                    Show more
+                </button>
+            );
+        }
+
+        let showLess = null;
+        if (maxSearchResults > this.defaultMaxSearchResults) {
+            showLess = (
+                <button
+                    className="showLess"
+                    onClick={() => this.handleMaxSearchResultsChange(this.defaultMaxSearchResults)}
+                    key={3}>
+                    Show less
+                </button>
+            );
+        }
+
+        let noResults = null;
+        if (searchResults.length === 0) {
+            noResults = (
+                <p>No fields found</p>
+            );
+        }
+
+        const firstX = searchResults.slice(0, maxSearchResults);
+        const available = ([
+            <ul key={1}>
+                {firstX.map((item, i) => {
                     return (
                         <Field
-                            key={'available_fields_' + item.path}
-                            item={item} handler={() => this.handleAddField(item.path)}
-                            icon={'ion-ios-plus'}/>
+                            key={'available_fields_' + item.path + i}
+                            item={item} handler={() => this.handleAddField(item)}
+                            icon={'ion-ios-plus'}
+                        />
                     );
                 })}
-            </ul>
-        );
+            </ul>,
+            <div className="searchResultsFooter" key={2}>
+                {numMore}
+                {showMore}
+                {showLess}
+                {noResults}
+            </div>
+        ]);
 
         let selectDatasourceMessage = null;
 
@@ -391,7 +573,7 @@ class ConfigurationView extends React.Component {
             <div>
                 <ul>{ options }</ul>
                 { availableFields.length > 0 ? search : null }
-                { available }
+                { availableFields.length > 0 ? available : null }
                 { selectDatasourceMessage }
             </div>
         );
@@ -642,18 +824,6 @@ class ConfigurationView extends React.Component {
                     </h2>
 
                     { this.renderFields(fields, availableFields) }
-
-
-                </div>
-
-                <div className="form-group">
-                    <h2>
-                        Date fields
-                        <Loader show={fieldsFetching} />
-                    </h2>
-                    <p>The date fields are being used for the histogram.</p>
-
-                    { this.renderDateFields(date_fields, availableFields) }
                 </div>
 
                 <div className="form-group">
