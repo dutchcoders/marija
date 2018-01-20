@@ -8,7 +8,7 @@ Currently Marija is being used to identify related spamruns, but can be used for
 
 # Screenshot
 
-![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202016-11-17%20at%2009.46.31.png?raw=true)
+![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202018-01-20%20at%2015.14.12.png?raw=true)
 
 ## Install
 
