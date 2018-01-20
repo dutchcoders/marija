@@ -5,11 +5,10 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
-
-	"golang.org/x/net/context"
 
 	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
@@ -17,7 +16,7 @@ import (
 // IndicesPutMappingService allows to register specific mapping definition
 // for a specific type.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-put-mapping.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/indices-put-mapping.html
 // for details.
 type IndicesPutMappingService struct {
 	client            *Client
@@ -28,7 +27,7 @@ type IndicesPutMappingService struct {
 	ignoreUnavailable *bool
 	allowNoIndices    *bool
 	expandWildcards   string
-	ignoreConflicts   *bool
+	updateAllTypes    *bool
 	timeout           string
 	bodyJson          map[string]interface{}
 	bodyString        string
@@ -95,10 +94,10 @@ func (s *IndicesPutMappingService) ExpandWildcards(expandWildcards string) *Indi
 	return s
 }
 
-// IgnoreConflicts specifies whether to ignore conflicts while updating
-// the mapping (default: false).
-func (s *IndicesPutMappingService) IgnoreConflicts(ignoreConflicts bool) *IndicesPutMappingService {
-	s.ignoreConflicts = &ignoreConflicts
+// UpdateAllTypes, if true, indicates that all fields that span multiple indices
+// should be updated (default: false).
+func (s *IndicesPutMappingService) UpdateAllTypes(updateAllTypes bool) *IndicesPutMappingService {
+	s.updateAllTypes = &updateAllTypes
 	return s
 }
 
@@ -154,8 +153,8 @@ func (s *IndicesPutMappingService) buildURL() (string, url.Values, error) {
 	if s.expandWildcards != "" {
 		params.Set("expand_wildcards", s.expandWildcards)
 	}
-	if s.ignoreConflicts != nil {
-		params.Set("ignore_conflicts", fmt.Sprintf("%v", *s.ignoreConflicts))
+	if s.updateAllTypes != nil {
+		params.Set("update_all_types", fmt.Sprintf("%v", *s.updateAllTypes))
 	}
 	if s.timeout != "" {
 		params.Set("timeout", s.timeout)

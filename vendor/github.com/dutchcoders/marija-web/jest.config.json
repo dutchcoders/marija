@@ -1,0 +1,15 @@
+{
+  "verbose": true,
+  "moduleDirectories": [
+    "node_modules",
+    "src"
+  ],
+  "moduleFileExtensions": [
+    "js",
+    "jsx"
+  ],
+  "plugins": ["transform-es2015-modules-commonjs"],
+  "transform": {
+    "^.+\\.jsx?$": "./node_modules/babel-jest"
+  }
+}

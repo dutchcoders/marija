@@ -3,25 +3,36 @@ package es5
 import (
 	"context"
 	"encoding/json"
+	"io"
 
-	"github.com/op/go-logging"
 	log2 "log"
 
+	logging "github.com/op/go-logging"
+	cache "github.com/patrickmn/go-cache"
+
 	"net/url"
-	"os"
 	"path"
 
 	elastic "gopkg.in/olivere/elastic.v5"
 
 	"fmt"
+
+	"os"
+
 	"github.com/dutchcoders/marija/server/datasources"
 )
+
+// implement via
+// return partial results to websocket
+// scripted fields from config
 
 var log = logging.MustGetLogger("marija/datasources/elasticsearch")
 
 type Elasticsearch struct {
 	client *elastic.Client
 	URL    url.URL
+
+	cache *cache.Cache
 
 	Username string
 	Password string
@@ -76,41 +87,114 @@ func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
 	return nil
 }
 
-func (i *Elasticsearch) Search(so datasources.SearchOptions) ([]datasources.Item, int, error) {
-	hl := elastic.NewHighlight()
-	hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
-	hl = hl.PreTags("<em>").PostTags("</em>")
+// return chan datasources.Item instead
+type SearchResponse struct {
+	itemChan  chan datasources.Item
+	errorChan chan error
+}
 
-	index := path.Base(i.URL.Path)
+func (sr *SearchResponse) Item() chan datasources.Item {
+	return sr.itemChan
+}
 
-	q := elastic.NewQueryStringQuery(so.Query)
-	results, err := i.client.Search().
-		Index(index).
-		Highlight(hl).
-		Query(q).
-		From(so.From).Size(so.Size).
-		Do(context.Background())
-	if err != nil {
-		return nil, 0, err
-	}
+func (sr *SearchResponse) Error() chan error {
+	return sr.errorChan
+}
 
-	log.Debugf("%#v\n", results)
+func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions) datasources.SearchResponse {
+	itemCh := make(chan datasources.Item)
+	errorCh := make(chan error)
 
-	items := make([]datasources.Item, len(results.Hits.Hits))
-	for i, hit := range results.Hits.Hits {
-		var fields map[string]interface{}
-		if err := json.Unmarshal(*hit.Source, &fields); err != nil {
-			continue
+	go func() {
+		defer close(itemCh)
+		defer close(errorCh)
+
+		hl := elastic.NewHighlight()
+		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
+		hl = hl.PreTags("<em>").PostTags("</em>")
+
+		index := path.Base(i.URL.Path)
+
+		scriptFields := []*elastic.ScriptField{
+		/*
+			//		elastic.NewScriptField("src-ip_dst-ip_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-ip'] + '_' + params['_source']['destination-port']")),
+			elastic.NewScriptField("src-ip_dst-net_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-net'] + '_' + params['_source']['destination-port']")),
+		*/
 		}
 
-		items[i] = datasources.Item{
-			ID:        hit.Id,
-			Fields:    fields,
-			Highlight: hit.Highlight,
-		}
-	}
+		q := elastic.NewQueryStringQuery(so.Query)
 
-	return items, int(results.Hits.TotalHits), nil
+		src := elastic.NewSearchSource().
+			Query(q).
+			FetchSource(false).
+			Highlight(hl).
+			FetchSource(true).
+			From(so.From).
+			Size(100)
+
+		if len(scriptFields) > 0 {
+			src = src.ScriptFields(scriptFields...)
+		}
+
+		hits := make(chan *elastic.SearchHit)
+
+		go func() {
+			defer close(hits)
+
+			scroll := i.client.Scroll().Index(index).SearchSource(src)
+			for {
+				results, err := scroll.Do(ctx)
+				if err == io.EOF {
+					return
+				} else if err != nil {
+					errorCh <- err
+					return
+				}
+
+				for _, hit := range results.Hits.Hits {
+					select {
+					case hits <- hit:
+					case <-ctx.Done():
+						log.Debug("Search canceled query=%s, index=%s", q, index)
+						return
+					}
+				}
+			}
+
+		}()
+
+		for {
+			select {
+			case hit, ok := <-hits:
+				if !ok {
+					return
+				}
+
+				var fields map[string]interface{}
+				if err := json.Unmarshal(*hit.Source, &fields); err != nil {
+					errorCh <- err
+					continue
+				}
+
+				for key, val := range hit.Fields {
+					fields[key] = val
+				}
+
+				itemCh <- datasources.Item{
+					ID:        hit.Id,
+					Fields:    fields,
+					Highlight: hit.Highlight,
+				}
+			}
+		}
+
+		return
+	}()
+
+	return &SearchResponse{
+		itemCh,
+		errorCh,
+	}
 }
 
 func flatten(root string, m map[string]interface{}) (fields []datasources.Field) {
@@ -140,13 +224,19 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 	return
 }
 
-func (i *Elasticsearch) Fields() (fields []datasources.Field, err error) {
+func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
 	index := path.Base(i.URL.Path)
-	log.Debug("Using index: ", path.Base(i.URL.Path))
+
+	exists, err := i.client.IndexExists(index).Do(ctx)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("Index %s doesn't exist", index)
+	}
 
 	mapping, err := i.client.GetMapping().
 		Index(index).
-		Do(context.Background())
+		Do(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, err.Error())
@@ -155,9 +245,20 @@ func (i *Elasticsearch) Fields() (fields []datasources.Field, err error) {
 	mapping = mapping[index].(map[string]interface{})
 	mapping = mapping["mappings"].(map[string]interface{})
 	for _, v := range mapping {
-		// types
 		fields = append(fields, flatten("", v.(map[string]interface{}))...)
 	}
+
+	/*
+		fields = append(fields, datasources.Field{
+			Path: "src-ip_dst-net_port",
+			Type: "string",
+		})
+
+		fields = append(fields, datasources.Field{
+			Path: "src-ip_dst-ip_port",
+			Type: "string",
+		})
+	*/
 
 	return
 }

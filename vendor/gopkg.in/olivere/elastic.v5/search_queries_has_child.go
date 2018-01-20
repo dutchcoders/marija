@@ -8,12 +8,12 @@ package elastic
 // in parent documents that have child docs matching the query.
 //
 // For more details, see
-// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-has-child-query.html
+// https://www.elastic.co/guide/en/elasticsearch/reference/5.2/query-dsl-has-child-query.html
 type HasChildQuery struct {
 	query              Query
 	childType          string
 	boost              *float64
-	scoreType          string
+	scoreMode          string
 	minChildren        *int
 	maxChildren        *int
 	shortCircuitCutoff *int
@@ -35,10 +35,11 @@ func (q *HasChildQuery) Boost(boost float64) *HasChildQuery {
 	return q
 }
 
-// ScoreType defines how the scores from the matching child documents
-// are mapped into the parent document.
-func (q *HasChildQuery) ScoreType(scoreType string) *HasChildQuery {
-	q.scoreType = scoreType
+// ScoreMode defines how the scores from the matching child documents
+// are mapped into the parent document. Allowed values are: min, max,
+// avg, or none.
+func (q *HasChildQuery) ScoreMode(scoreMode string) *HasChildQuery {
+	q.scoreMode = scoreMode
 	return q
 }
 
@@ -83,6 +84,7 @@ func (q *HasChildQuery) Source() (interface{}, error) {
 	// {
 	//   "has_child" : {
 	//       "type" : "blog_tag",
+	//       "score_mode" : "min",
 	//       "query" : {
 	//           "term" : {
 	//               "tag" : "something"
@@ -103,8 +105,8 @@ func (q *HasChildQuery) Source() (interface{}, error) {
 	if q.boost != nil {
 		query["boost"] = *q.boost
 	}
-	if q.scoreType != "" {
-		query["score_type"] = q.scoreType
+	if q.scoreMode != "" {
+		query["score_mode"] = q.scoreMode
 	}
 	if q.minChildren != nil {
 		query["min_children"] = *q.minChildren

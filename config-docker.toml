@@ -1,0 +1,9 @@
+[datasource]
+
+[datasource.elasticsearch]
+type="elasticsearch"
+url="http://127.0.0.1:9200/test"
+
+[[logging]]
+output = "stdout"
+level = "debug"

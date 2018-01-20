@@ -5,10 +5,9 @@
 package elastic
 
 import (
+	"context"
 	"fmt"
 	"net/url"
-
-	"golang.org/x/net/context"
 
 	"gopkg.in/olivere/elastic.v5/uritemplates"
 )
@@ -16,7 +15,7 @@ import (
 // IndexService adds or updates a typed JSON document in a specified index,
 // making it searchable.
 //
-// See https://www.elastic.co/guide/en/elasticsearch/reference/5.0/docs-index_.html
+// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-index_.html
 // for details.
 type IndexService struct {
 	client              *Client
@@ -173,7 +172,7 @@ func (s *IndexService) buildURL() (string, string, url.Values, error) {
 		})
 	} else {
 		// Automatic ID generation
-		// See https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-index_.html#index-creation
+		// See https://www.elastic.co/guide/en/elasticsearch/reference/5.2/docs-index_.html#index-creation
 		method = "POST"
 		path, err = uritemplates.Expand("/{index}/{type}/", map[string]string{
 			"index": s.index,
@@ -280,10 +279,14 @@ func (s *IndexService) Do(ctx context.Context) (*IndexResponse, error) {
 
 // IndexResponse is the result of indexing a document in Elasticsearch.
 type IndexResponse struct {
-	// TODO _shards { total, failed, successful }
-	Index   string `json:"_index"`
-	Type    string `json:"_type"`
-	Id      string `json:"_id"`
-	Version int    `json:"_version"`
-	Created bool   `json:"created"`
+	Index         string      `json:"_index,omitempty"`
+	Type          string      `json:"_type,omitempty"`
+	Id            string      `json:"_id,omitempty"`
+	Version       int64       `json:"_version,omitempty"`
+	Result        string      `json:"result,omitempty"`
+	Shards        *shardsInfo `json:"_shards,omitempty"`
+	SeqNo         int64       `json:"_seq_no,omitempty"`
+	PrimaryTerm   int64       `json:"_primary_term,omitempty"`
+	Status        int         `json:"status,omitempty"`
+	ForcedRefresh bool        `json:"forced_refresh,omitempty"`
 }

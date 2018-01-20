@@ -24,7 +24,7 @@ type User struct {
 	GeoEnabled                     bool          `json:"geo_enabled"`
 	ID                             int64         `json:"id"`
 	IDStr                          string        `json:"id_str"`
-	IsTranslator                   bool          `json:"id_translator"`
+	IsTranslator                   bool          `json:"is_translator"`
 	Lang                           string        `json:"lang"`
 	ListedCount                    int           `json:"listed_count"`
 	Location                       string        `json:"location"`
@@ -51,7 +51,7 @@ type User struct {
 	URL                            string        `json:"url"`
 	UtcOffset                      int           `json:"utc_offset"`
 	Verified                       bool          `json:"verified"`
-	WithheldInCountries            string        `json:"withheld_in_countries"`
+	WithheldInCountries            []string      `json:"withheld_in_countries"`
 	WithholdScope                  string        `json:"withheld_scope"`
 }
 
