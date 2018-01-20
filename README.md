@@ -101,9 +101,9 @@ level = "debug"
 * zoom and move nodes
 * navigate through selected data using the tableview
 
-## Contribute
+## Contribute to Marija
 
-Contributions are welcome.
+Please follow Marija [Contributor's Guide](CONTRIBUTING.md)
 
 ## Copyright and license
 
