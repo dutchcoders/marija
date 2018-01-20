@@ -17,7 +17,7 @@ Currently Marija is being used to identify related spamruns, but can be used for
 ```
 $ docker pull marija/marija
 $ vim config-docker.toml # update elasticsearch configuration
-$ docker run -d -p 8080:8080 --name marija marija/marija
+$ docker run -d -p 8080:8080 -v (pwd)/config-docker.toml:/config/config.toml --name marija marija/marija
 ```
 
 ### Installation from source
@@ -41,37 +41,6 @@ $ marija
 $ brew tap dutchcoders/homebrew-marija
 $ brew install marija
 ```
-
-## Usage
-
-There are a few steps you need to take before you can start.
-
-* add your datasources to config.toml
-* enable the datasources you want to search in using the eye icon
-* use the refresh icon to refresh the list of available fields
-* add the fields you want to use as nodes
-
-* additionally you can add the date field you want to use for the histogram
-* and add some normalizations (eg removing part of the identifier) using regular expressions
-
-You're all setup now, just type your queries and start exploring your data.
-
-## Demo
-
-There is an online demo available at [http://demo.marija.io/](http://demo.marija.io/). 
-
-### Enron demo
-
-Enable the datasource enron, next click on refresh to retrieve the fields. Now you can add for example fields **to**, **recipients**, **bcc**, **cc** and **sender**. Now you can search for keywords and see the relations between the emails. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
-
-### Twitter demo
-
-Enable the datasource twitter, next click on refresh to retrieve the fields. Now you can add for example fields **in_reply_to_screen_name**, **user.screen_name**, **user.name**, **mentions** and **tags**. Now you can search for keywords and see the relations between tweets. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself, and add columns to the view. 
-
-### Blockchain demo
-
-Enable the datasource blockchain, next click on refresh to retrieve the fields. Now you can add for example fields **input_tag**, **output** and **relayed_by**. Now you can search for bitcoin addresses (17TaZ6qkf7ot9nkFLZPV9kjbWByPfjm9c4, 1ABwEbyQ67U2PqbWJCyhL4LZYF3agxVGDe) and see the relations between transactions. When you select one or more nodes, open the table view (on the right). Here you can look at the data itself. 
-
 
 ## Configuration
 
