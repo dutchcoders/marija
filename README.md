@@ -6,6 +6,8 @@ Marija is a data exploration and visualisation tool for (un)structured Elasticse
 
 Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
 
+[Enron Demo](http://demo.marija.io/?datasources=enron&fields=cc%2Cto%2Csender%2Crecipients%2Csubject&search=oil%2Cmoney%2Cwater)
+
 # Screenshot
 
 ![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202018-01-20%20at%2015.14.12.png?raw=true)
