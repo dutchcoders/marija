@@ -48,10 +48,11 @@ const (
 
 	ActionTypeCancel = "CANCEL_REQUEST"
 
-	ActionTypeSearchRequest   = "SEARCH_REQUEST"
-	ActionTypeSearchReceive   = "SEARCH_RECEIVE"
-	ActionTypeSearchCanceled  = "SEARCH_CANCELED"
-	ActionTypeSearchCompleted = "SEARCH_COMPLETED"
+	ActionTypeSearchRequest = "SEARCH_REQUEST"
+	ActionTypeSearchReceive = "SEARCH_RECEIVE"
+
+	ActionTypeRequestCanceled  = "REQUEST_CANCELED"
+	ActionTypeRequestCompleted = "REQUEST_COMPLETED"
 
 	ActionTypeItemsRequest = "ITEMS_REQUEST"
 	ActionTypeItemsReceive = "ITEMS_RECEIVE"

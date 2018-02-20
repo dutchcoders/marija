@@ -14,107 +14,106 @@ func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
 		RequestID: r.RequestID,
 	})
 
-	/*
-		indexes := r.Datasources
+	go func() {
+		items := []interface{}{}
 
-		for _, index := range indexes {
-			datasource, ok := c.server.Datasources[index]
-			if !ok {
-				c.Send(&ErrorMessage{
-					RequestID: r.RequestID,
-					Message:   fmt.Sprintf("Could not find datasource: %s", index),
-				})
+		items = append(items, struct {
+			ItemID string `json:"itemd_id"`
+			Test   string `json:"test"`
+			Test1  string `json:"test2"`
+			Test2  string `json:"test3"`
+			Test3  string `json:"test4"`
+			Test4  string `json:"test5"`
+		}{
+			ItemID: "test",
 
-				log.Errorf("Could not find datasource: %s", index)
-				continue
-			}
+			Test:  "test",
+			Test1: "test1",
+			Test2: "test2",
+			Test3: "test3",
+			Test4: "test4",
+		})
 
-			go func() {
-				response := datasource.Search(ctx, datasources.SearchOptions{
-					Query: r.Query,
-				})
+		items = append(items, struct {
+			ItemID string `json:"itemd_id"`
+			Test   string `json:"test"`
+			Test1  string `json:"test2"`
+			Test2  string `json:"test3"`
+			Test3  string `json:"test4"`
+			Test4  string `json:"test5"`
+		}{
+			ItemID: "test",
+			Test:   "test2",
+			Test1:  "test1",
+			Test2:  "test2",
+			Test3:  "test3",
+			Test4:  "test4",
+		})
 
-				unique := Unique{}
+		c.Send(&ItemsResponse{
+			RequestID: r.RequestID,
+			Items:     items,
+		})
 
-				items := []datasources.Item{}
+		c.Send(&RequestCompleted{
+			RequestID: r.RequestID,
+		})
 
-				for {
-					select {
-					case <-ctx.Done():
+		/*
+			response := datasource.Search(ctx, datasources.SearchOptions{
+				Query: r.Query,
+			})
+
+			unique := Unique{}
+
+			items := []interface{}{}
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case err, ok := <-response.Error():
+					if !ok {
 						return
-					case err, ok := <-response.Error():
-						if !ok {
-							return
-						}
-
-						log.Error("Error: ", err.Error())
-
-						c.Send(&ErrorMessage{
-							RequestID: r.RequestID,
-							Message:   err.Error(),
-						})
-
-					case item, ok := <-response.Item():
-						if !ok {
-							c.Send(&SearchResponse{
-								RequestID: r.RequestID,
-								Query:     r.Query,
-								Nodes:     items,
-							})
-
-							return
-						}
-
-						// filter fields
-						values := map[string]interface{}{}
-
-						for _, field := range r.Fields {
-							v, ok := item.Fields[field]
-							if !ok {
-								continue
-							}
-
-							values[field] = v
-						}
-
-						// calculate hash of fields
-						h := fnv.New128()
-						for _, field := range values {
-							switch s := field.(type) {
-							case string:
-								h.Write([]byte(s))
-							default:
-							}
-						}
-						hash := h.Sum(nil)
-
-						if unique.Contains(hash) {
-							continue
-						}
-
-						unique.Add(hash)
-
-						items = append(items, datasources.Item{
-							Fields: values,
-						})
-
-						if len(items) < 20 {
-							continue
-						}
-					case <-time.After(time.Second * 5):
 					}
 
-					c.Send(&SearchResponse{
+					log.Error("Error: ", err.Error())
+
+					c.Send(&ErrorMessage{
 						RequestID: r.RequestID,
-						Query:     r.Query,
-						Nodes:     items,
+						Message:   err.Error(),
+					})
+				case item, ok := <-response.Item():
+					if !ok {
+						c.Send(&ItemsResponse{
+							RequestID: r.RequestID,
+							Items:     items,
+						})
+
+						return
+					}
+
+					items = append(items, type Type struct {
+						Test string `json:"test"`
+					}{
+						Test: "test",
 					})
 
-					items = []datasources.Item{}
+					if len(items) < 20 {
+						continue
+					}
+				case <-time.After(time.Second * 5):
 				}
-			}()
-		}
-	*/
+
+				c.Send(&ItemsResponse{
+					RequestID: r.RequestID,
+					Items:     items,
+				})
+
+				items = []interface{}{}
+			}
+		*/
+	}()
 
 	return nil
 }

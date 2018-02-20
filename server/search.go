@@ -64,7 +64,7 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 
 			defer func() {
 				if err == context.Canceled {
-					c.Send(&SearchCanceled{
+					c.Send(&RequestCanceled{
 						RequestID: r.RequestID,
 					})
 				} else if err != nil {
@@ -81,7 +81,7 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 						Nodes:     items,
 					})
 
-					c.Send(&SearchCompleted{
+					c.Send(&RequestCompleted{
 						RequestID: r.RequestID,
 					})
 				}
@@ -115,10 +115,23 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 						values[field] = v
 					}
 
+					count := 0
+					for _ = range values {
+						count++
+					}
+
+					if count == 0 {
+						continue
+					}
+
 					// calculate hash of fields
 					h := fnv.New128()
 					for _, field := range values {
 						switch s := field.(type) {
+						case []string:
+							for _, v := range s {
+								h.Write([]byte(v))
+							}
 						case string:
 							h.Write([]byte(s))
 						default:
@@ -147,6 +160,10 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 						continue
 					}
 				case <-time.After(time.Second * 5):
+				}
+
+				if len(items) == 0 {
+					continue
 				}
 
 				c.Send(&SearchResponse{

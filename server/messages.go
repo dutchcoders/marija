@@ -48,22 +48,24 @@ type Response struct {
 type ItemsRequest struct {
 	Request
 
-	Nodes []string `json:""`
-	From  int      `json:"from"`
-	Size  int      `json:"size"`
+	Items []string `json:"items"`
 }
 
 type ItemsResponse struct {
 	RequestID string
+
+	Items []interface{} `json:"items"`
 }
 
 func (em *ItemsResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		Type      string `json:"type"`
-		RequestID string `json:"request-id"`
+		Type      string        `json:"type"`
+		RequestID string        `json:"request-id"`
+		Items     []interface{} `json:"items"`
 	}{
 		Type:      ActionTypeItemsReceive,
 		RequestID: em.RequestID,
+		Items:     em.Items,
 	})
 }
 
@@ -76,30 +78,30 @@ type SearchRequest struct {
 	Query       string   `json:"query"`
 }
 
-type SearchCanceled struct {
+type RequestCanceled struct {
 	RequestID string
 }
 
-func (em *SearchCanceled) MarshalJSON() ([]byte, error) {
+func (em *RequestCanceled) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		Type      string `json:"type"`
 		RequestID string `json:"request-id"`
 	}{
-		Type:      ActionTypeSearchCanceled,
+		Type:      ActionTypeRequestCanceled,
 		RequestID: em.RequestID,
 	})
 }
 
-type SearchCompleted struct {
+type RequestCompleted struct {
 	RequestID string
 }
 
-func (em *SearchCompleted) MarshalJSON() ([]byte, error) {
+func (em *RequestCompleted) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		Type      string `json:"type"`
 		RequestID string `json:"request-id"`
 	}{
-		Type:      ActionTypeSearchCompleted,
+		Type:      ActionTypeRequestCompleted,
 		RequestID: em.RequestID,
 	})
 }

@@ -87,20 +87,6 @@ func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
 	return nil
 }
 
-// return chan datasources.Item instead
-type SearchResponse struct {
-	itemChan  chan datasources.Item
-	errorChan chan error
-}
-
-func (sr *SearchResponse) Item() chan datasources.Item {
-	return sr.itemChan
-}
-
-func (sr *SearchResponse) Error() chan error {
-	return sr.errorChan
-}
-
 func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions) datasources.SearchResponse {
 	itemCh := make(chan datasources.Item)
 	errorCh := make(chan error)
@@ -176,6 +162,8 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 					continue
 				}
 
+				fields = flattenFields("", fields)
+
 				for key, val := range hit.Fields {
 					fields[key] = val
 				}
@@ -191,10 +179,32 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		return
 	}()
 
-	return &SearchResponse{
+	return datasources.NewSearchResponse(
 		itemCh,
 		errorCh,
+	)
+}
+
+func flattenFields(root string, m map[string]interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
+
+	for k, v := range m {
+		key := k
+		if root != "" {
+			key = root + "." + key
+		}
+
+		switch s2 := v.(type) {
+		case map[string]interface{}:
+			for k2, v2 := range flattenFields(key, s2) {
+				fields[k2] = v2
+			}
+		default:
+			fields[key] = v
+		}
 	}
+
+	return fields
 }
 
 func flatten(root string, m map[string]interface{}) (fields []datasources.Field) {
