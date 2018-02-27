@@ -129,7 +129,7 @@ func (c *connection) readPump() {
 			cancel, ok := cancelFuncs[r.RequestID]
 			if !ok {
 				log.Error("Could not find cancel func for requestid: %s", r.RequestID)
-
+				continue
 			}
 
 			cancel()
