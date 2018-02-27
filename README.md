@@ -19,7 +19,7 @@ Currently Marija is being used to identify related spamruns, but can be used for
 ```
 $ docker pull marija/marija
 $ vim config-docker.toml # update elasticsearch configuration
-$ docker run -d -p 8080:8080 -v (pwd)/config-docker.toml:/config/config.toml --name marija marija/marija
+$ docker run -d -p 8080:8080 -v $(pwd)/config-docker.toml:/config/config.toml --name marija marija/marija
 ```
 
 ### Installation from source
