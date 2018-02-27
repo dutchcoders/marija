@@ -5,8 +5,6 @@ import (
 	_ "log"
 	"os"
 
-	"fmt"
-
 	"github.com/BurntSushi/toml"
 	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
 	_ "github.com/dutchcoders/marija/server/datasources/es5"
@@ -25,8 +23,6 @@ func Config(val string) func(*Server) {
 		if _, err := toml.DecodeFile(val, &server); err != nil {
 			panic(err)
 		}
-
-		fmt.Printf("Config: %#v\n", server.config)
 
 		logBackends := []logging.Backend{}
 		for _, log := range server.Logging {
