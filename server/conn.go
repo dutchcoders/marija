@@ -248,6 +248,8 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		server: s,
 	}
 
+	ws.SetReadLimit(0)
+
 	h.register <- c
 
 	log.Info("Connection upgraded.")
