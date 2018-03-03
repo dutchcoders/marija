@@ -96,6 +96,16 @@ func (d *Datasources) UnmarshalTOML(p interface{}) error {
 	return nil
 }
 
+
+func IsTerminal(f *os.File) bool {
+	if isatty.IsTerminal(f.Fd()) {
+		return true
+	} else if isatty.IsCygwinTerminal(f.Fd()) {
+		return true
+	}
+
+	return false
+}
 func (server *Server) Run() {
 	go h.run()
 
@@ -125,7 +135,8 @@ func (server *Server) Run() {
 
 	http.HandleFunc("/ws", server.serveWs)
 
-	fmt.Println(color.YellowString(`
+	if IsTerminal(os.Stdout) {
+		fmt.Println(color.YellowString(`
  __  __            _  _
 |  \/  | __ _ _ __(_)(_) __ _
 | |\/| |/ _' | '__| || |/ _' |
@@ -133,6 +144,7 @@ func (server *Server) Run() {
 |_|  |_|\__,_|_|  |_|/ |\__,_|
                    |__/
 `))
+	}
 
 	fmt.Println(color.YellowString("Marija server started %s (%s)", Version, ShortCommitID))
 	fmt.Println(color.YellowString("Listening on address %s.", server.address))
