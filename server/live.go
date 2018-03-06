@@ -1,0 +1,67 @@
+package server
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/fatih/color"
+)
+
+func flattenFields(root string, m map[string]interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
+
+	for k, v := range m {
+		key := k
+		if root != "" {
+			key = root + "." + key
+		}
+
+		switch s2 := v.(type) {
+		case map[string]interface{}:
+			for k2, v2 := range flattenFields(key, s2) {
+				fields[k2] = v2
+			}
+		default:
+			fields[key] = v
+		}
+	}
+
+	return fields
+}
+
+func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
+	var fields map[string]interface{}
+
+	err := json.NewDecoder(r.Body).Decode(&fields)
+	if err != nil {
+		log.Error(color.RedString("Submit could not parse body: %s", err.Error()))
+		return
+	}
+
+	fields = flattenFields("", fields)
+
+	if len(fields) == 0 {
+		return
+	}
+
+	key := r.URL.RawQuery
+	if key == "" {
+		key = "wodan"
+	}
+
+	ds, ok := server.GetDatasource(key)
+	if !ok {
+		return
+	}
+
+	type Receiverer interface {
+		Receive(m map[string]interface{})
+	}
+
+	s, ok := ds.(Receiverer)
+	if !ok {
+		return
+	}
+
+	s.Receive(fields)
+}

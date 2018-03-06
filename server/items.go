@@ -6,10 +6,11 @@ import (
 	"runtime"
 
 	"github.com/dutchcoders/marija/server/datasources"
+	"github.com/dutchcoders/marija/server/messages"
 )
 
-func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
-	c.Send(&ItemsResponse{
+func (c *connection) Items(ctx context.Context, r messages.ItemsRequest) error {
+	c.Send(&messages.ItemsResponse{
 		RequestID: r.RequestID,
 	})
 
@@ -27,23 +28,23 @@ func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
 
 		defer func() {
 			if err == context.Canceled {
-				c.Send(&RequestCanceled{
+				c.Send(&messages.RequestCanceled{
 					RequestID: r.RequestID,
 				})
 			} else if err != nil {
 				log.Error("Error: ", err.Error())
 
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else {
-				c.Send(&ItemsResponse{
+				c.Send(&messages.ItemsResponse{
 					RequestID: r.RequestID,
 					Items:     items,
 				})
 
-				c.Send(&RequestCompleted{
+				c.Send(&messages.RequestCompleted{
 					RequestID: r.RequestID,
 				})
 			}
@@ -56,7 +57,7 @@ func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
 				continue
 			}
 
-			c.Send(&ItemsResponse{
+			c.Send(&messages.ItemsResponse{
 				Items: items,
 			})
 		}

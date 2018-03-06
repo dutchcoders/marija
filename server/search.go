@@ -11,14 +11,11 @@ import (
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
+	"github.com/dutchcoders/marija/server/messages"
+	"github.com/dutchcoders/marija/server/unique"
 )
 
-func (c *connection) Search(ctx context.Context, r SearchRequest) error {
-	c.Send(&SearchResponse{
-		RequestID: r.RequestID,
-		Query:     r.Query,
-	})
-
+func (c *connection) Search(ctx context.Context, r messages.SearchRequest) error {
 	if len(r.Datasources) == 0 {
 		return errors.New("No datasource set")
 	}
@@ -26,9 +23,15 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 	for _, index := range r.Datasources {
 		log.Debug("Search query=%s, request=%s, index=%s", r.Query, r.RequestID, index)
 
+		c.Send(&messages.SearchResponse{
+			RequestID:  r.RequestID,
+			Query:      r.Query,
+			Datasource: index,
+		})
+
 		datasource, ok := c.server.GetDatasource(index)
 		if !ok {
-			c.Send(&ErrorMessage{
+			c.Send(&messages.ErrorMessage{
 				RequestID: r.RequestID,
 				Message:   fmt.Sprintf("Could not find datasource: %s", index),
 			})
@@ -51,32 +54,32 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 				Query: r.Query,
 			})
 
-			unique := Unique{}
+			unique := unique.New()
 
-			nodes := []datasources.Node{}
+			graphs := []datasources.Graph{}
 
 			defer func() {
 				if err == context.Canceled {
 					log.Debug("Search canceled query=%s, requestid=%s, index=%s", r.Query, r.RequestID, index)
 
-					c.Send(&RequestCanceled{
+					c.Send(&messages.RequestCanceled{
 						RequestID: r.RequestID,
 					})
 				} else if err != nil {
 					log.Error("Search error query=%s, requestid=%s, index=%s, error=%s", r.Query, r.RequestID, index, err.Error())
 
-					c.Send(&ErrorMessage{
+					c.Send(&messages.ErrorMessage{
 						RequestID: r.RequestID,
 						Message:   err.Error(),
 					})
 				} else {
-					c.Send(&SearchResponse{
+					c.Send(&messages.SearchResponse{
 						RequestID: r.RequestID,
 						Query:     r.Query,
-						Nodes:     nodes,
+						Graphs:    graphs,
 					})
 
-					c.Send(&RequestCompleted{
+					c.Send(&messages.RequestCompleted{
 						RequestID: r.RequestID,
 					})
 
@@ -138,7 +141,7 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 					hash := h.Sum(nil)
 					hashHex := hex.EncodeToString(hash)
 
-					i := &datasources.Node{
+					i := &datasources.Graph{
 						ID:     hashHex,
 						Fields: values,
 						Count:  1,
@@ -161,25 +164,26 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 
 					c.items[i.ID] = items
 
-					nodes = append(nodes, *i)
+					graphs = append(graphs, *i)
 
-					if len(nodes) < 20 {
+					if len(graphs) < 20 {
 						continue
 					}
 				case <-time.After(time.Second * 5):
 				}
 
-				if len(nodes) == 0 {
+				if len(graphs) == 0 {
 					continue
 				}
 
-				c.Send(&SearchResponse{
-					RequestID: r.RequestID,
-					Query:     r.Query,
-					Nodes:     nodes,
+				c.Send(&messages.SearchResponse{
+					RequestID:  r.RequestID,
+					Query:      r.Query,
+					Graphs:     graphs,
+					Datasource: index,
 				})
 
-				nodes = []datasources.Node{}
+				graphs = []datasources.Graph{}
 			}
 		}(index)
 	}

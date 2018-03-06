@@ -4,6 +4,10 @@
 
 package server
 
+import (
+	"encoding/json"
+)
+
 // hub maintains the set of active connections and broadcasts messages to the
 // connections.
 type hub struct {
@@ -33,5 +37,11 @@ func (h *hub) run() {
 				delete(h.connections, c)
 			}
 		}
+	}
+}
+
+func (h *hub) Send(v json.Marshaler) {
+	for c := range h.connections {
+		c.Send(v)
 	}
 }

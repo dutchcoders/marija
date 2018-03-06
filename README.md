@@ -48,6 +48,7 @@ $ brew install marija
 
 ```
 [datasource]
+
 [datasource.elasticsearch]
 type="elasticsearch"
 url="http://127.0.0.1:9200/demo_index"
@@ -59,18 +60,33 @@ output = "stdout"
 level = "debug"
 ```
 
+
+### Splunk
+
+```
+[datasource]
+
+[datasource.splunk]
+type="splunk"
+url="https://localhost:8089"
+username="admin"
+password="admin"
+```
+
 ## Features
 
 * work on multiple servers and indexes at the same time
 * different fields can be used as node identifier
 * identifiers can be normalized through normalization regular expressions
 * each field will have its own icon
-* query indexes using elasticsearch queries like your used to do
+* query indexes natively to the datasource
 * histogram view to identify nodes in time
 * select and delete nodes
 * select related nodes, deselect all but selected nodes
 * zoom and move nodes
 * navigate through selected data using the tableview
+* multiple datasources supported like Elasticsearch, Splunk, Blockchain.info, Twitter
+* submit nodes in realtime
 
 ## Contribute to Marija
 
@@ -78,7 +94,7 @@ Please follow Marija [Contributor's Guide](CONTRIBUTING.md)
 
 ## Copyright and license
 
-Code and documentation copyright 2016-2017 Remco Verhoef.
+Code and documentation copyright 2016-2018 Remco Verhoef.
 
 Code released under [the Apache license](LICENSE).
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
+	"github.com/dutchcoders/marija/server/messages"
 
 	"github.com/gorilla/websocket"
 
@@ -40,28 +41,6 @@ var upgrader = websocket.Upgrader{
 		return true
 	},
 }
-
-const (
-	ERROR = "ERROR"
-
-	InitialStateReceive = "INITIAL_STATE_RECEIVE"
-
-	ActionTypeCancel = "CANCEL_REQUEST"
-
-	ActionTypeSearchRequest = "SEARCH_REQUEST"
-	ActionTypeSearchReceive = "SEARCH_RECEIVE"
-
-	ActionTypeRequestCanceled  = "REQUEST_CANCELED"
-	ActionTypeRequestCompleted = "REQUEST_COMPLETED"
-
-	ActionTypeItemsRequest = "ITEMS_REQUEST"
-	ActionTypeItemsReceive = "ITEMS_RECEIVE"
-
-	ActionTypeLiveReceive = "LIVE_RECEIVE"
-
-	ActionTypeGetFieldsRequest = "FIELDS_REQUEST"
-	ActionTypeGetFieldsReceive = "FIELDS_RECEIVE"
-)
 
 type connection struct {
 	ws     *websocket.Conn
@@ -97,13 +76,13 @@ func (c *connection) readPump() {
 		return nil
 	})
 
-	datasources := make([]Datasource, 0, len(c.server.Datasources))
+	datasources := make([]messages.Datasource, 0, len(c.server.Datasources))
 
 	for k, ds := range c.server.Datasources {
-		datasources = append(datasources, Datasource{ID: k, Name: k, Type: ds.Type()})
+		datasources = append(datasources, messages.Datasource{ID: k, Name: k, Type: ds.Type()})
 	}
 
-	c.Send(&InitialStateMessage{
+	c.Send(&messages.InitialStateMessage{
 		Datasources: datasources,
 		Version:     Version,
 		CommitID:    CommitID,
@@ -126,13 +105,13 @@ func (c *connection) readPump() {
 			return
 		}
 
-		r := Request{}
+		r := messages.Request{}
 		if err := json.Unmarshal(data, &r); err != nil {
 			log.Error("Error decoding message: ", err.Error())
 			continue
 		}
 
-		if r.Type == ActionTypeCancel {
+		if r.Type == messages.ActionTypeCancel {
 			cancel, ok := cancelFuncs[r.RequestID]
 			if !ok {
 				log.Error("Could not find cancel func for requestid: %s", r.RequestID)
@@ -147,50 +126,50 @@ func (c *connection) readPump() {
 		cancelFuncs[r.RequestID] = cancel
 
 		switch r.Type {
-		case ActionTypeSearchRequest:
-			r := SearchRequest{}
+		case messages.ActionTypeSearchRequest:
+			r := messages.SearchRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
 				log.Error("Error occured during search: %s", err.Error())
 
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.Search(ctx, r); err != nil {
 				log.Error("Error occured during search: %s", err.Error())
 
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			}
-		case ActionTypeItemsRequest:
-			r := ItemsRequest{}
+		case messages.ActionTypeItemsRequest:
+			r := messages.ItemsRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
 				log.Error("Error occured retrieving items: %s", err.Error())
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.Items(ctx, r); err != nil {
 				log.Error("Error occured retrieving items: %s", err.Error())
 
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			}
-		case ActionTypeGetFieldsRequest:
-			r := GetFieldsRequest{}
+		case messages.ActionTypeGetFieldsRequest:
+			r := messages.GetFieldsRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
 				log.Error("Error occured during search: %s", err.Error())
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.GetFields(ctx, r); err != nil {
 				log.Error("Error occured during field discovery: %s", err.Error())
-				c.Send(&ErrorMessage{
+				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})

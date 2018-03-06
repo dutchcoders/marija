@@ -1,8 +1,9 @@
 package server
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"hash/fnv"
 	_ "log"
 	"net/http"
 	"os"
@@ -22,9 +23,6 @@ import (
 
 	logging "github.com/op/go-logging"
 
-	"encoding/hex"
-	"encoding/json"
-
 	web "github.com/dutchcoders/marija-web"
 	"github.com/fatih/color"
 )
@@ -35,8 +33,6 @@ type Server struct {
 	*config
 
 	Datasources map[string]datasources.Index
-
-	liveCh chan map[string]interface{}
 }
 
 func New(options ...func(*Server)) *Server {
@@ -44,8 +40,6 @@ func New(options ...func(*Server)) *Server {
 		config: &config{
 			debug: false,
 		},
-
-		liveCh: make(chan map[string]interface{}, 100),
 	}
 
 	for _, optionFn := range options {
@@ -53,28 +47,6 @@ func New(options ...func(*Server)) *Server {
 	}
 
 	return server
-}
-
-func flattenFields(root string, m map[string]interface{}) map[string]interface{} {
-	fields := map[string]interface{}{}
-
-	for k, v := range m {
-		key := k
-		if root != "" {
-			key = root + "." + key
-		}
-
-		switch s2 := v.(type) {
-		case map[string]interface{}:
-			for k2, v2 := range flattenFields(key, s2) {
-				fields[k2] = v2
-			}
-		default:
-			fields[key] = v
-		}
-	}
-
-	return fields
 }
 
 func IsTerminal(f *os.File) bool {
@@ -85,24 +57,6 @@ func IsTerminal(f *os.File) bool {
 	}
 
 	return false
-}
-
-func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
-	var fields map[string]interface{}
-
-	err := json.NewDecoder(r.Body).Decode(&fields)
-	if err != nil {
-		log.Error(color.RedString(err.Error()))
-		return
-	}
-
-	fields = flattenFields("", fields)
-
-	if len(fields) == 0 {
-		return
-	}
-
-	server.liveCh <- fields
 }
 
 func (server *Server) Run() {
@@ -167,13 +121,27 @@ func (server *Server) Run() {
 			continue
 		}
 
-		ds, err := fn(datasources.WithConfig(s))
+		ds, err := fn(
+			datasources.WithConfig(s),
+		)
 		if err != nil {
 			log.Error("Error parsing configuration of datasource: %s: %s", key, err.Error())
 			continue
 		}
 
 		server.Datasources[key] = ds
+
+		type Broadcasterer interface {
+			Broadcast(context.Context, string) chan json.Marshaler
+		}
+
+		if bc, ok := ds.(Broadcasterer); ok {
+			go func(key string) {
+				for m := range bc.Broadcast(context.Background(), key) {
+					h.Send(m)
+				}
+			}(key)
+		}
 	}
 
 	signals := make(chan os.Signal, 1)
@@ -182,42 +150,6 @@ func (server *Server) Run() {
 	go func() {
 		if err := http.ListenAndServe(server.address, nil); err != nil {
 			log.Fatal("ListenAndServe: ", err)
-		}
-	}()
-
-	go func() {
-		for fields := range server.liveCh {
-			// calculate hash of fields
-			hash := fnv.New128()
-			for _, field := range fields {
-				switch s := field.(type) {
-				case []string:
-					for _, v := range s {
-						hash.Write([]byte(v))
-					}
-				case string:
-					hash.Write([]byte(s))
-				default:
-				}
-			}
-
-			hashHex := hex.EncodeToString(hash.Sum(nil))
-
-			graphs := []datasources.Graph{
-				datasources.Graph{
-					ID:     hashHex,
-					Fields: fields,
-					Count:  1,
-				},
-			}
-
-			for c := range h.connections {
-				//
-				c.Send(&LiveResponse{
-					Datasource: "wodan",
-					Graphs:     graphs,
-				})
-			}
 		}
 	}()
 

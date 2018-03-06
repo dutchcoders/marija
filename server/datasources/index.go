@@ -9,3 +9,11 @@ type Index interface {
 
 	Type() string
 }
+
+type SetNamerer interface {
+	SetName(name string) string
+}
+
+type SetHuberer interface {
+	SetHub(name string) string
+}
