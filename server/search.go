@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	_ "log"
@@ -9,11 +11,6 @@ import (
 	"time"
 
 	"github.com/dutchcoders/marija/server/datasources"
-
-	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
-	_ "github.com/dutchcoders/marija/server/datasources/es5"
-	_ "github.com/dutchcoders/marija/server/datasources/twitter"
-	uuid "github.com/satori/go.uuid"
 )
 
 func (c *connection) Search(ctx context.Context, r SearchRequest) error {
@@ -22,18 +19,14 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 		Query:     r.Query,
 	})
 
-	indexes := []string{}
-
-	if r.Datasource != "" {
-		indexes = append(indexes, r.Datasource)
+	if len(r.Datasources) == 0 {
+		return errors.New("No datasource set")
 	}
 
-	if len(r.Datasources) >= 1 {
-		indexes = append(indexes, r.Datasources...)
-	}
+	for _, index := range r.Datasources {
+		log.Debug("Search query=%s, request=%s, index=%s", r.Query, r.RequestID, index)
 
-	for _, index := range indexes {
-		datasource, ok := c.server.Datasources[index]
+		datasource, ok := c.server.GetDatasource(index)
 		if !ok {
 			c.Send(&ErrorMessage{
 				RequestID: r.RequestID,
@@ -44,7 +37,7 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 			continue
 		}
 
-		go func() (err error) {
+		go func(index string) (err error) {
 			defer func() {
 				if err := recover(); err != nil {
 					trace := make([]byte, 1024)
@@ -60,15 +53,17 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 
 			unique := Unique{}
 
-			items := []datasources.Item{}
+			nodes := []datasources.Node{}
 
 			defer func() {
 				if err == context.Canceled {
+					log.Debug("Search canceled query=%s, requestid=%s, index=%s", r.Query, r.RequestID, index)
+
 					c.Send(&RequestCanceled{
 						RequestID: r.RequestID,
 					})
 				} else if err != nil {
-					log.Error("Error: ", err.Error())
+					log.Error("Search error query=%s, requestid=%s, index=%s, error=%s", r.Query, r.RequestID, index, err.Error())
 
 					c.Send(&ErrorMessage{
 						RequestID: r.RequestID,
@@ -78,12 +73,14 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 					c.Send(&SearchResponse{
 						RequestID: r.RequestID,
 						Query:     r.Query,
-						Nodes:     items,
+						Nodes:     nodes,
 					})
 
 					c.Send(&RequestCompleted{
 						RequestID: r.RequestID,
 					})
+
+					log.Debug("Search completed query=%s, requestid=%s, index=%s", r.Query, r.RequestID, index)
 				}
 			}()
 
@@ -139,9 +136,10 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 					}
 
 					hash := h.Sum(nil)
+					hashHex := hex.EncodeToString(hash)
 
-					i := &datasources.Item{
-						ID:     uuid.NewV4().String(),
+					i := &datasources.Node{
+						ID:     hashHex,
 						Fields: values,
 						Count:  1,
 					}
@@ -154,27 +152,36 @@ func (c *connection) Search(ctx context.Context, r SearchRequest) error {
 
 					unique.Add(hash, i)
 
-					items = append(items, *i)
+					items := []datasources.Item{}
+					if _, ok := c.items[i.ID]; ok {
+						items = c.items[i.ID]
+					}
 
-					if len(items) < 20 {
+					items = append(items, item)
+
+					c.items[i.ID] = items
+
+					nodes = append(nodes, *i)
+
+					if len(nodes) < 20 {
 						continue
 					}
 				case <-time.After(time.Second * 5):
 				}
 
-				if len(items) == 0 {
+				if len(nodes) == 0 {
 					continue
 				}
 
 				c.Send(&SearchResponse{
 					RequestID: r.RequestID,
 					Query:     r.Query,
-					Nodes:     items,
+					Nodes:     nodes,
 				})
 
-				items = []datasources.Item{}
+				nodes = []datasources.Node{}
 			}
-		}()
+		}(index)
 	}
 
 	return nil

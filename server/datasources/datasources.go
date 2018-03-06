@@ -2,15 +2,17 @@ package datasources
 
 import (
 	"errors"
-	"net/url"
+
+	"github.com/BurntSushi/toml"
 )
 
 var (
 	datasources = map[string]DatasourceFn{}
+
 	ErrNotFound = errors.New("Datasource not found.")
 )
 
-type DatasourceFn func(u *url.URL) (Index, error)
+type DatasourceFn func(options ...func(Index) error) (Index, error)
 
 func Register(name string, fn DatasourceFn) DatasourceFn {
 	datasources[name] = fn
@@ -25,27 +27,9 @@ func Get(name string) (DatasourceFn, error) {
 	return nil, ErrNotFound
 }
 
-type SearchResponse interface {
-	Item() chan Item
-	Error() chan error
-}
-
-func NewSearchResponse(itemChan chan Item, errorChan chan error) *searchResponse {
-	return &searchResponse{
-		itemChan,
-		errorChan,
+func WithConfig(c toml.Primitive) func(Index) error {
+	return func(d Index) error {
+		err := toml.PrimitiveDecode(c, d)
+		return err
 	}
-}
-
-type searchResponse struct {
-	itemChan  chan Item
-	errorChan chan error
-}
-
-func (sr *searchResponse) Item() chan Item {
-	return sr.itemChan
-}
-
-func (sr *searchResponse) Error() chan error {
-	return sr.errorChan
 }

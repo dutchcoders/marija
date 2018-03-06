@@ -3,10 +3,9 @@ package server
 import (
 	"context"
 	_ "log"
+	"runtime"
 
-	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
-	_ "github.com/dutchcoders/marija/server/datasources/es5"
-	_ "github.com/dutchcoders/marija/server/datasources/twitter"
+	"github.com/dutchcoders/marija/server/datasources"
 )
 
 func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
@@ -14,105 +13,55 @@ func (c *connection) Items(ctx context.Context, r ItemsRequest) error {
 		RequestID: r.RequestID,
 	})
 
-	go func() {
-		items := []interface{}{}
+	go func() (err error) {
+		defer func() {
+			if err := recover(); err != nil {
+				trace := make([]byte, 1024)
+				count := runtime.Stack(trace, true)
+				log.Errorf("Error: %s", err)
+				log.Debugf("Stack of %d bytes: %s\n", count, string(trace))
+			}
+		}()
 
-		items = append(items, struct {
-			ItemID string `json:"itemd_id"`
-			Test   string `json:"test"`
-			Test1  string `json:"test2"`
-			Test2  string `json:"test3"`
-			Test3  string `json:"test4"`
-			Test4  string `json:"test5"`
-		}{
-			ItemID: "test",
+		items := []datasources.Item{}
 
-			Test:  "test",
-			Test1: "test1",
-			Test2: "test2",
-			Test3: "test3",
-			Test4: "test4",
-		})
+		defer func() {
+			if err == context.Canceled {
+				c.Send(&RequestCanceled{
+					RequestID: r.RequestID,
+				})
+			} else if err != nil {
+				log.Error("Error: ", err.Error())
 
-		items = append(items, struct {
-			ItemID string `json:"itemd_id"`
-			Test   string `json:"test"`
-			Test1  string `json:"test2"`
-			Test2  string `json:"test3"`
-			Test3  string `json:"test4"`
-			Test4  string `json:"test5"`
-		}{
-			ItemID: "test",
-			Test:   "test2",
-			Test1:  "test1",
-			Test2:  "test2",
-			Test3:  "test3",
-			Test4:  "test4",
-		})
-
-		c.Send(&ItemsResponse{
-			RequestID: r.RequestID,
-			Items:     items,
-		})
-
-		c.Send(&RequestCompleted{
-			RequestID: r.RequestID,
-		})
-
-		/*
-			response := datasource.Search(ctx, datasources.SearchOptions{
-				Query: r.Query,
-			})
-
-			unique := Unique{}
-
-			items := []interface{}{}
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case err, ok := <-response.Error():
-					if !ok {
-						return
-					}
-
-					log.Error("Error: ", err.Error())
-
-					c.Send(&ErrorMessage{
-						RequestID: r.RequestID,
-						Message:   err.Error(),
-					})
-				case item, ok := <-response.Item():
-					if !ok {
-						c.Send(&ItemsResponse{
-							RequestID: r.RequestID,
-							Items:     items,
-						})
-
-						return
-					}
-
-					items = append(items, type Type struct {
-						Test string `json:"test"`
-					}{
-						Test: "test",
-					})
-
-					if len(items) < 20 {
-						continue
-					}
-				case <-time.After(time.Second * 5):
-				}
-
+				c.Send(&ErrorMessage{
+					RequestID: r.RequestID,
+					Message:   err.Error(),
+				})
+			} else {
 				c.Send(&ItemsResponse{
 					RequestID: r.RequestID,
 					Items:     items,
 				})
 
-				items = []interface{}{}
+				c.Send(&RequestCompleted{
+					RequestID: r.RequestID,
+				})
 			}
-		*/
+		}()
+
+		for _, itemid := range r.Items {
+			items := c.items[itemid]
+
+			if len(items) == 0 {
+				continue
+			}
+
+			c.Send(&ItemsResponse{
+				Items: items,
+			})
+		}
+
+		return nil
 	}()
 
 	return nil

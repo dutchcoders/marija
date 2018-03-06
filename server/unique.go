@@ -5,9 +5,6 @@ import (
 	"sync"
 
 	"github.com/dutchcoders/marija/server/datasources"
-	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
-	_ "github.com/dutchcoders/marija/server/datasources/es5"
-	_ "github.com/dutchcoders/marija/server/datasources/twitter"
 )
 
 type Unique struct {

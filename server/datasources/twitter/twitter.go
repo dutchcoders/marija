@@ -1,6 +1,7 @@
 package twitter
 
 import (
+	"context"
 	"net/url"
 	"strings"
 
@@ -8,10 +9,49 @@ import (
 	"github.com/dghubble/oauth1"
 	"github.com/dutchcoders/marija/server/datasources"
 	"github.com/gernest/mention"
-	"github.com/kr/pretty"
+	logging "github.com/op/go-logging"
 )
 
+var (
+	_ = datasources.Register("twitter", New)
+)
+
+var log = logging.MustGetLogger("marija/datasources/twitter")
+
+func New(options ...func(datasources.Index) error) (datasources.Index, error) {
+	s := Twitter{}
+
+	for _, optionFn := range options {
+		optionFn(&s)
+	}
+
+	config := oauth1.NewConfig(s.ConsumerKey, s.ConsumerSecret)
+
+	httpClient := config.Client(
+		oauth1.NoContext,
+		oauth1.NewToken(s.Token, s.TokenSecret),
+	)
+
+	s.client = twitter.NewClient(httpClient)
+
+	return &s, nil
+}
+
+func (m *Twitter) Type() string {
+	return "twitter"
+}
+
+type Config struct {
+	ConsumerKey    string
+	ConsumerSecret string
+
+	Token       string
+	TokenSecret string
+}
+
 type Twitter struct {
+	Config
+
 	client *twitter.Client
 	u      *url.URL
 }
@@ -19,108 +59,90 @@ type Twitter struct {
 func (m *Twitter) UnmarshalTOML(p interface{}) error {
 	data, _ := p.(map[string]interface{})
 
-	consumerKey := ""
 	if v, ok := data["consumer_key"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		consumerKey = v
+		m.ConsumerKey = v
 	}
 
-	consumerSecret := ""
 	if v, ok := data["consumer_secret"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		consumerSecret = v
+		m.ConsumerSecret = v
 	}
 
-	token := ""
 	if v, ok := data["token"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		token = v
+		m.Token = v
 	}
 
-	tokenSecret := ""
 	if v, ok := data["token_secret"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		tokenSecret = v
+		m.TokenSecret = v
 	}
-
-	config := oauth1.NewConfig(consumerKey, consumerSecret)
-	httpClient := config.Client(
-		oauth1.NoContext,
-		oauth1.NewToken(token, tokenSecret),
-	)
-
-	m.client = twitter.NewClient(httpClient)
 
 	return nil
 }
 
-func (b *Twitter) Search(so datasources.SearchOptions) ([]datasources.Item, int, error) {
-	search, _, err := b.client.Search.Tweets(&twitter.SearchTweetParams{
-		Query: so.Query,
-		Count: so.Size,
-	})
+func (i *Twitter) Search(ctx context.Context, so datasources.SearchOptions) datasources.SearchResponse {
+	itemCh := make(chan datasources.Item)
+	errorCh := make(chan error)
 
-	if err != nil {
-		return nil, 0, err
-	}
+	go func() {
+		defer close(itemCh)
+		defer close(errorCh)
 
-	i := 0
+		search, _, err := i.client.Search.Tweets(&twitter.SearchTweetParams{
+			Query: so.Query,
+			Count: 200,
+		})
 
-	items := []datasources.Item{}
-
-main:
-	for _, tweet := range search.Statuses {
-
-		if i < so.From {
-			i++
-			continue
-		}
-		// mentions
-		// followers
-
-		fields := map[string]interface{}{
-			"text": tweet.Text,
-			// "date":             time.Unix(tx.Time, 0),
-			"in_reply_to_screen_name":   tweet.InReplyToScreenName,
-			"in_reply_to_status_id_str": tweet.InReplyToStatusIDStr,
-			"in_reply_to_user_id_str":   tweet.InReplyToUserIDStr,
-			"lang":   tweet.Lang,
-			"source": tweet.Source,
-			"user": map[string]interface{}{
-				"name":        tweet.User.Name,
-				"id_str":      tweet.User.IDStr,
-				"lang":        tweet.User.Lang,
-				"location":    tweet.User.Location,
-				"screen_name": tweet.User.ScreenName,
-			},
-			"tags":     mention.GetTags('#', strings.NewReader(tweet.Text), ':'),
-			"mentions": mention.GetTags('@', strings.NewReader(tweet.Text), ':'),
+		if err != nil {
+			errorCh <- err
+			return
 		}
 
-		pretty.Print(fields)
+		for _, tweet := range search.Statuses {
+			fields := map[string]interface{}{
+				"text": tweet.Text,
+				// "date":             time.Unix(tx.Time, 0),
+				"in_reply_to_screen_name":   tweet.InReplyToScreenName,
+				"in_reply_to_status_id_str": tweet.InReplyToStatusIDStr,
+				"in_reply_to_user_id_str":   tweet.InReplyToUserIDStr,
+				"lang":             tweet.Lang,
+				"source":           tweet.Source,
+				"user.name":        tweet.User.Name,
+				"user.id_str":      tweet.User.IDStr,
+				"user.lang":        tweet.User.Lang,
+				"user.location":    tweet.User.Location,
+				"user.screen_name": tweet.User.ScreenName,
+				"tags":             mention.GetTags('#', strings.NewReader(tweet.Text), ':'),
+				"mentions":         mention.GetTags('@', strings.NewReader(tweet.Text), ':'),
+			}
 
-		item := datasources.Item{
-			ID:     tweet.IDStr,
-			Fields: fields,
+			item := datasources.Item{
+				ID:     tweet.IDStr,
+				Fields: fields,
+			}
+
+			select {
+			case itemCh <- item:
+			case <-ctx.Done():
+				return
+			}
 		}
 
-		items = append(items, item)
+	}()
 
-		if i >= so.From+so.Size {
-			break main
-		}
-
-		i++
-	}
-
-	return items, search.Metadata.Count, nil
+	return datasources.NewSearchResponse(
+		itemCh,
+		errorCh,
+	)
 }
 
-func (i *Twitter) Fields() (fields []datasources.Field, err error) {
+func (i *Twitter) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
 	fields = append(fields, datasources.Field{
 		Path: "text",
 		Type: "string",

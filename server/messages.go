@@ -5,14 +5,11 @@ import (
 	_ "log"
 
 	"github.com/dutchcoders/marija/server/datasources"
-
-	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
-	_ "github.com/dutchcoders/marija/server/datasources/es5"
-	_ "github.com/dutchcoders/marija/server/datasources/twitter"
 )
 
 type Datasource struct {
 	ID   string `json:"id"`
+	Type string `json:"type"`
 	Name string `json:"name"`
 }
 
@@ -54,14 +51,14 @@ type ItemsRequest struct {
 type ItemsResponse struct {
 	RequestID string
 
-	Items []interface{} `json:"items"`
+	Items []datasources.Item `json:"items"`
 }
 
 func (em *ItemsResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
-		Type      string        `json:"type"`
-		RequestID string        `json:"request-id"`
-		Items     []interface{} `json:"items"`
+		Type      string             `json:"type"`
+		RequestID string             `json:"request-id"`
+		Items     []datasources.Item `json:"items"`
 	}{
 		Type:      ActionTypeItemsReceive,
 		RequestID: em.RequestID,
@@ -73,7 +70,6 @@ type SearchRequest struct {
 	Request
 
 	Datasources []string `json:"datasources"`
-	Datasource  string   `json:"datasource"`
 	Fields      []string `json:"fields"`
 	Query       string   `json:"query"`
 }
@@ -106,12 +102,29 @@ func (em *RequestCompleted) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type LiveResponse struct {
+	Datasource string
+	Graphs     []datasources.Graph
+}
+
+func (em *LiveResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Type       string              `json:"type"`
+		Datasource string              `json:"datasource"`
+		Graphs     []datasources.Graph `json:"graphs"`
+	}{
+		Type:       ActionTypeLiveReceive,
+		Datasource: em.Datasource,
+		Graphs:     em.Graphs,
+	})
+}
+
 type SearchResponse struct {
 	RequestID string
 
 	Server string
 	Query  string
-	Nodes  []datasources.Item
+	Nodes  []datasources.Node
 }
 
 func (em *SearchResponse) MarshalJSON() ([]byte, error) {
@@ -120,7 +133,7 @@ func (em *SearchResponse) MarshalJSON() ([]byte, error) {
 		RequestID string             `json:"request-id"`
 		Server    string             `json:"server,omitempty"`
 		Query     string             `json:"query"`
-		Nodes     []datasources.Item `json:"results"`
+		Nodes     []datasources.Node `json:"results"`
 	}{
 		Type:      ActionTypeSearchReceive,
 		RequestID: em.RequestID,

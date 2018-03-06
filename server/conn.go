@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
-	_ "github.com/dutchcoders/marija/server/datasources/es5"
-	_ "github.com/dutchcoders/marija/server/datasources/twitter"
+	"github.com/dutchcoders/marija/server/datasources"
+
 	"github.com/gorilla/websocket"
-	"github.com/op/go-logging"
+
+	logging "github.com/op/go-logging"
 )
 
 var format = logging.MustStringFormatter(
@@ -57,6 +57,8 @@ const (
 	ActionTypeItemsRequest = "ITEMS_REQUEST"
 	ActionTypeItemsReceive = "ITEMS_RECEIVE"
 
+	ActionTypeLiveReceive = "LIVE_RECEIVE"
+
 	ActionTypeGetFieldsRequest = "FIELDS_REQUEST"
 	ActionTypeGetFieldsReceive = "FIELDS_RECEIVE"
 )
@@ -67,6 +69,8 @@ type connection struct {
 	b      int
 	server *Server
 	closed bool
+
+	items map[string][]datasources.Item
 }
 
 func (c *connection) Send(v json.Marshaler) {
@@ -82,6 +86,8 @@ func (c *connection) readPump() {
 	defer func() {
 		h.unregister <- c
 		c.ws.Close()
+		c.closed = true
+		close(c.send)
 	}()
 
 	c.ws.SetReadLimit(maxMessageSize)
@@ -92,8 +98,9 @@ func (c *connection) readPump() {
 	})
 
 	datasources := make([]Datasource, 0, len(c.server.Datasources))
-	for k := range c.server.Datasources {
-		datasources = append(datasources, Datasource{ID: k, Name: k})
+
+	for k, ds := range c.server.Datasources {
+		datasources = append(datasources, Datasource{ID: k, Name: k, Type: ds.Type()})
 	}
 
 	c.Send(&InitialStateMessage{
@@ -246,13 +253,14 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		send:   make(chan json.Marshaler, 256),
 		ws:     ws,
 		server: s,
+		items:  map[string][]datasources.Item{},
 	}
 
 	ws.SetReadLimit(0)
 
 	h.register <- c
 
-	log.Info("Connection upgraded.")
+	log.Info("Connection upgraded host=%s", r.RemoteAddr)
 	defer log.Info("Connection closed")
 
 	go c.writePump()

@@ -2,21 +2,28 @@ package server
 
 import (
 	"fmt"
+	"hash/fnv"
 	_ "log"
 	"net/http"
 	"os"
 	"os/signal"
 
+	"github.com/BurntSushi/toml"
 	"github.com/dutchcoders/marija/server/datasources"
+	isatty "github.com/mattn/go-isatty"
 
-	"github.com/dutchcoders/marija/server/datasources/es5"
-	//	"github.com/dutchcoders/marija/server/datasources/solr"
-	//	"github.com/dutchcoders/marija/server/datasources/twitter"
+	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
+	_ "github.com/dutchcoders/marija/server/datasources/es5"
+	_ "github.com/dutchcoders/marija/server/datasources/live"
+	_ "github.com/dutchcoders/marija/server/datasources/splunk"
+	_ "github.com/dutchcoders/marija/server/datasources/twitter"
 
-	// btc "github.com/dutchcoders/marija/server/datasources/blockchain"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 
 	logging "github.com/op/go-logging"
+
+	"encoding/hex"
+	"encoding/json"
 
 	web "github.com/dutchcoders/marija-web"
 	"github.com/fatih/color"
@@ -26,76 +33,49 @@ var log = logging.MustGetLogger("marija/server")
 
 type Server struct {
 	*config
+
+	Datasources map[string]datasources.Index
+
+	liveCh chan map[string]interface{}
 }
 
-type config struct {
-	path    string
-	address string
-	debug   bool
+func New(options ...func(*Server)) *Server {
+	server := &Server{
+		config: &config{
+			debug: false,
+		},
 
-	ListenerString string `toml:"listen"`
+		liveCh: make(chan map[string]interface{}, 100),
+	}
 
-	Username string `toml:"username"`
-	Password string `toml:"password"`
-	Service  string `toml:"service"`
+	for _, optionFn := range options {
+		optionFn(server)
+	}
 
-	Datasources Datasources `toml:"datasource"`
-
-	Logging []struct {
-		Output string `toml:"output"`
-		Level  string `toml:"level"`
-	} `toml:"logging"`
+	return server
 }
 
-// type Datasource interface{}
+func flattenFields(root string, m map[string]interface{}) map[string]interface{} {
+	fields := map[string]interface{}{}
 
-type Datasources map[string]datasources.Index
+	for k, v := range m {
+		key := k
+		if root != "" {
+			key = root + "." + key
+		}
 
-func (d *Datasources) UnmarshalTOML(p interface{}) error {
-	m := Datasources{}
-
-	data, _ := p.(map[string]interface{})
-	for n, v := range data {
-		if d, ok := v.(map[string]interface{}); ok {
-			if v, ok := d["type"]; !ok {
-			} else if v, ok := v.(string); !ok {
-			} else if v == "elasticsearch" {
-				nd := &es5.Elasticsearch{}
-				if err := nd.UnmarshalTOML(d); err != nil {
-					return err
-				}
-				m[n] = nd
-			} else {
-			} /*else if v == "twitter" {
-				nd := &twitter.Twitter{}
-				if err := nd.UnmarshalTOML(d); err != nil {
-					return err
-				}
-				m[n] = nd
-			} else if v == "solr" {
-				nd := &solr.Solr{}
-				if err := nd.UnmarshalTOML(d); err != nil {
-					return err
-				}
-				m[n] = nd
-			} else if v == "blockchain" {
-				nd := &btc.BTC{}
-				if err := nd.UnmarshalTOML(d); err != nil {
-					return err
-				}
-				m[n] = nd
-			} else {
-			} */
-		} else {
-			return fmt.Errorf("not a dish")
+		switch s2 := v.(type) {
+		case map[string]interface{}:
+			for k2, v2 := range flattenFields(key, s2) {
+				fields[k2] = v2
+			}
+		default:
+			fields[key] = v
 		}
 	}
 
-	*d = m
-
-	return nil
+	return fields
 }
-
 
 func IsTerminal(f *os.File) bool {
 	if isatty.IsTerminal(f.Fd()) {
@@ -106,13 +86,27 @@ func IsTerminal(f *os.File) bool {
 
 	return false
 }
+
+func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
+	var fields map[string]interface{}
+
+	err := json.NewDecoder(r.Body).Decode(&fields)
+	if err != nil {
+		log.Error(color.RedString(err.Error()))
+		return
+	}
+
+	fields = flattenFields("", fields)
+
+	if len(fields) == 0 {
+		return
+	}
+
+	server.liveCh <- fields
+}
+
 func (server *Server) Run() {
 	go h.run()
-
-	/*
-		fileHandler := http.FileServer(http.Dir(path.Join(dir, "static")))
-		http.Handle("/static/", fileHandler)
-	*/
 
 	staticHandler := http.FileServer(
 		&assetfs.AssetFS{
@@ -133,6 +127,7 @@ func (server *Server) Run() {
 
 	http.Handle("/", staticHandler)
 
+	http.HandleFunc("/submit", server.SubmitHandler)
 	http.HandleFunc("/ws", server.serveWs)
 
 	if IsTerminal(os.Stdout) {
@@ -153,12 +148,76 @@ func (server *Server) Run() {
 		fmt.Println(color.YellowString("Marija server stopped"))
 	}()
 
+	server.Datasources = map[string]datasources.Index{}
+
+	for key, s := range server.config.Datasources {
+		x := struct {
+			Type string `toml:"type"`
+		}{}
+
+		err := toml.PrimitiveDecode(s, &x)
+		if err != nil {
+			log.Error("Error parsing configuration of datasource: %s: %s", key, err.Error())
+			continue
+		}
+
+		fn, err := datasources.Get(x.Type)
+		if err != nil {
+			log.Error("Error parsing configuration of datasource: %s: %s", key, err.Error())
+			continue
+		}
+
+		ds, err := fn(datasources.WithConfig(s))
+		if err != nil {
+			log.Error("Error parsing configuration of datasource: %s: %s", key, err.Error())
+			continue
+		}
+
+		server.Datasources[key] = ds
+	}
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
 	go func() {
 		if err := http.ListenAndServe(server.address, nil); err != nil {
 			log.Fatal("ListenAndServe: ", err)
+		}
+	}()
+
+	go func() {
+		for fields := range server.liveCh {
+			// calculate hash of fields
+			hash := fnv.New128()
+			for _, field := range fields {
+				switch s := field.(type) {
+				case []string:
+					for _, v := range s {
+						hash.Write([]byte(v))
+					}
+				case string:
+					hash.Write([]byte(s))
+				default:
+				}
+			}
+
+			hashHex := hex.EncodeToString(hash.Sum(nil))
+
+			graphs := []datasources.Graph{
+				datasources.Graph{
+					ID:     hashHex,
+					Fields: fields,
+					Count:  1,
+				},
+			}
+
+			for c := range h.connections {
+				//
+				c.Send(&LiveResponse{
+					Datasource: "wodan",
+					Graphs:     graphs,
+				})
+			}
 		}
 	}()
 
@@ -172,16 +231,10 @@ func (server *Server) Run() {
 
 }
 
-func New(options ...func(*Server)) *Server {
-	server := &Server{
-		config: &config{
-			debug: false,
-		},
+func (s *Server) GetDatasource(key string) (datasources.Index, bool) {
+	if _, ok := s.Datasources[key]; !ok {
+		return nil, false
 	}
 
-	for _, optionFn := range options {
-		optionFn(server)
-	}
-
-	return server
+	return s.Datasources[key], true
 }

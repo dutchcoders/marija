@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"io"
 
-	log2 "log"
-
 	logging "github.com/op/go-logging"
 	cache "github.com/patrickmn/go-cache"
 
@@ -17,8 +15,6 @@ import (
 
 	"fmt"
 
-	"os"
-
 	"github.com/dutchcoders/marija/server/datasources"
 )
 
@@ -26,33 +22,72 @@ import (
 // return partial results to websocket
 // scripted fields from config
 
+var (
+	_ = datasources.Register("elasticsearch", New)
+)
+
 var log = logging.MustGetLogger("marija/datasources/elasticsearch")
 
-type Elasticsearch struct {
-	client *elastic.Client
-	URL    url.URL
+func New(options ...func(datasources.Index) error) (datasources.Index, error) {
+	s := Elasticsearch{}
 
-	cache *cache.Cache
+	for _, optionFn := range options {
+		optionFn(&s)
+	}
+
+	params := []elastic.ClientOptionFunc{
+		elastic.SetURL(s.URL.String()),
+		elastic.SetSniff(false),
+	}
+
+	if s.Username != "" {
+		params = append(params, elastic.SetBasicAuth(s.Username, s.Password))
+	}
+
+	if client, err := elastic.NewClient(
+		params...,
+	); err != nil {
+		return nil, fmt.Errorf("Error connecting to: %s: %s", s.URL.String(), err)
+	} else {
+		s.client = client
+	}
+
+	return &s, nil
+}
+
+func (m *Elasticsearch) Type() string {
+	return "elasticsearch"
+}
+
+type Config struct {
+	URL url.URL
+
+	Index string
 
 	Username string
 	Password string
 }
 
+type Elasticsearch struct {
+	client *elastic.Client
+	cache  *cache.Cache
+
+	Config
+}
+
 func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
 	data, _ := p.(map[string]interface{})
 
-	username := ""
 	if v, ok := data["username"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		username = v
+		m.Username = v
 	}
 
-	password := ""
 	if v, ok := data["password"]; !ok {
 	} else if v, ok := v.(string); !ok {
 	} else {
-		password = v
+		m.Password = v
 	}
 
 	if v, ok := data["url"]; !ok {
@@ -60,28 +95,10 @@ func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
 	} else if u, err := url.Parse(v); err != nil {
 		return err
 	} else {
-		m.URL = *u
+		m.Index = path.Base(u.Path)
 
 		u.Path = ""
-
-		errorlog := log2.New(os.Stdout, "APP ", log2.LstdFlags)
-		params := []elastic.ClientOptionFunc{
-			elastic.SetURL(u.String()),
-			elastic.SetSniff(false),
-			elastic.SetErrorLog(errorlog),
-		}
-
-		if username != "" {
-			params = append(params, elastic.SetBasicAuth(username, password))
-		}
-
-		if client, err := elastic.NewClient(
-			params...,
-		); err != nil {
-			return fmt.Errorf("Error connecting to: %s: %s", u.String(), err)
-		} else {
-			m.client = client
-		}
+		m.URL = *u
 	}
 
 	return nil
@@ -98,8 +115,6 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		hl := elastic.NewHighlight()
 		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 		hl = hl.PreTags("<em>").PostTags("</em>")
-
-		index := path.Base(i.URL.Path)
 
 		scriptFields := []*elastic.ScriptField{
 		/*
@@ -127,7 +142,7 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		go func() {
 			defer close(hits)
 
-			scroll := i.client.Scroll().Index(index).SearchSource(src)
+			scroll := i.client.Scroll().Index(i.Index).SearchSource(src)
 			for {
 				results, err := scroll.Do(ctx)
 				if err == io.EOF {
@@ -141,7 +156,7 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 					select {
 					case hits <- hit:
 					case <-ctx.Done():
-						log.Debug("Search canceled query=%s, index=%s", q, index)
+						log.Debug("Search canceled query=%s, index=%s", q, i.Index)
 						return
 					}
 				}
@@ -235,24 +250,22 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 }
 
 func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
-	index := path.Base(i.URL.Path)
-
-	exists, err := i.client.IndexExists(index).Do(ctx)
+	exists, err := i.client.IndexExists(i.Index).Do(ctx)
 	if err != nil {
 		return nil, err
 	} else if !exists {
-		return nil, fmt.Errorf("Index %s doesn't exist", index)
+		return nil, fmt.Errorf("Index %s doesn't exist", i.Index)
 	}
 
 	mapping, err := i.client.GetMapping().
-		Index(index).
+		Index(i.Index).
 		Do(ctx)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", index, err.Error())
+		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", i.Index, err.Error())
 	}
 
-	mapping = mapping[index].(map[string]interface{})
+	mapping = mapping[i.Index].(map[string]interface{})
 	mapping = mapping["mappings"].(map[string]interface{})
 	for _, v := range mapping {
 		fields = append(fields, flatten("", v.(map[string]interface{}))...)

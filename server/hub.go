@@ -31,7 +31,6 @@ func (h *hub) run() {
 		case c := <-h.unregister:
 			if _, ok := h.connections[c]; ok {
 				delete(h.connections, c)
-				close(c.send)
 			}
 		}
 	}

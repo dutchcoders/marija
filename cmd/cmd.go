@@ -82,16 +82,16 @@ func New() *Cmd {
 		options := []func(*server.Server){}
 
 		if v := c.String("port"); v != "" {
-			options = append(options, server.Address(v))
+			options = append(options, server.WithAddress(v))
 
 		}
 
 		if v := c.String("path"); v != "" {
-			options = append(options, server.Path(v))
+			options = append(options, server.WithPath(v))
 		}
 
 		if v := c.String("config"); v != "" {
-			options = append(options, server.Config(v))
+			options = append(options, server.WithConfig(v))
 		}
 
 		srvr := server.New(

@@ -1,5 +1,5 @@
 package web
 
-//go:generate go-bindata -pkg web -o bindata_gen.go build/...
+//go:generate go-bindata -pkg web -o bindata_gen.go dist/...
 
-var Prefix = "build"
+var Prefix = "dist"
