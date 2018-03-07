@@ -58,7 +58,9 @@ func (c *connection) Items(ctx context.Context, r messages.ItemsRequest) error {
 			}
 
 			c.Send(&messages.ItemsResponse{
-				Items: items,
+				RequestID: r.RequestID,
+				ItemID:    itemid,
+				Items:     items,
 			})
 		}
 

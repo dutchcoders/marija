@@ -73,6 +73,8 @@ type ItemsRequest struct {
 type ItemsResponse struct {
 	RequestID string
 
+	ItemID string
+
 	Items []datasources.Item `json:"items"`
 }
 
@@ -80,10 +82,12 @@ func (em *ItemsResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		Type      string             `json:"type"`
 		RequestID string             `json:"request-id"`
+		ItemID    string             `json:"item-id"`
 		Items     []datasources.Item `json:"items"`
 	}{
 		Type:      ActionTypeItemsReceive,
 		RequestID: em.RequestID,
+		ItemID:    em.ItemID,
 		Items:     em.Items,
 	})
 }
