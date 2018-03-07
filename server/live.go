@@ -51,6 +51,7 @@ func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
 
 	ds, ok := server.GetDatasource(key)
 	if !ok {
+		log.Error("Could not find datasource: %s", key)
 		return
 	}
 
@@ -60,6 +61,7 @@ func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
 
 	s, ok := ds.(Receiverer)
 	if !ok {
+		log.Error("%s does not support receiverer", key)
 		return
 	}
 
