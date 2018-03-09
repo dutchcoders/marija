@@ -29,41 +29,43 @@ func flattenFields(root string, m map[string]interface{}) map[string]interface{}
 	return fields
 }
 
+// SubmitHandler will receive requests from other datasources
 func (server *Server) SubmitHandler(w http.ResponseWriter, r *http.Request) {
-	var fields map[string]interface{}
-
-	err := json.NewDecoder(r.Body).Decode(&fields)
+	var docs []map[string]interface{}
+	err := json.NewDecoder(r.Body).Decode(&docs)
 	if err != nil {
 		log.Error(color.RedString("Submit could not parse body: %s", err.Error()))
 		return
 	}
 
-	fields = flattenFields("", fields)
+	for _, fields := range docs {
+		fields = flattenFields("", fields)
 
-	if len(fields) == 0 {
-		return
+		if len(fields) == 0 {
+			return
+		}
+
+		key := r.URL.RawQuery
+		if key == "" {
+			key = "wodan"
+		}
+
+		ds, ok := server.GetDatasource(key)
+		if !ok {
+			log.Error("Could not find datasource: %s", key)
+			return
+		}
+
+		type Receiverer interface {
+			Receive(m map[string]interface{})
+		}
+
+		s, ok := ds.(Receiverer)
+		if !ok {
+			log.Error("%s does not support receiverer", key)
+			return
+		}
+
+		s.Receive(fields)
 	}
-
-	key := r.URL.RawQuery
-	if key == "" {
-		key = "wodan"
-	}
-
-	ds, ok := server.GetDatasource(key)
-	if !ok {
-		log.Error("Could not find datasource: %s", key)
-		return
-	}
-
-	type Receiverer interface {
-		Receive(m map[string]interface{})
-	}
-
-	s, ok := ds.(Receiverer)
-	if !ok {
-		log.Error("%s does not support receiverer", key)
-		return
-	}
-
-	s.Receive(fields)
 }
