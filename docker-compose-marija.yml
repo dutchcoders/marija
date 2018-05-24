@@ -1,0 +1,13 @@
+version: "2.1"
+services:
+  marija:
+    image: marija/marija:latest
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./config-docker.toml:/config/config.toml
+    networks:
+      - honeytrap
+networks:
+  honeytrap:
+    external: true

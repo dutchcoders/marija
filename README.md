@@ -17,9 +17,26 @@ Currently Marija is being used to identify related spamruns, but can be used for
 ### Using Docker
 
 ```
+$ git clone https://github.com/dutchcoders/marija.git
 $ docker pull marija/marija
 $ vim config-docker.toml # update elasticsearch configuration
 $ docker run -d -p 8080:8080 -v $(pwd)/config-docker.toml:/config/config.toml --name marija marija/marija
+```
+
+### Using Honeytrap as datasource
+
+If you are using Marija to visualize data from a Honeytrap container, they need to be in the same Docker network.
+
+The following command uses `honeytrap` as the docker network:
+
+```
+$ docker run -d -p 8080:8080 -v $(pwd)/config-docker.toml:/config/config.toml --network=honeytrap --name marija marija/marija
+```
+
+This can also be accomplished by running the following docker-compose script:
+
+```
+$ docker-compose -f ./docker-compose-marija.yml up
 ```
 
 ### Installation from source
