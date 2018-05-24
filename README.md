@@ -23,9 +23,9 @@ $ vim config-docker.toml # update elasticsearch configuration
 $ docker run -d -p 8080:8080 -v $(pwd)/config-docker.toml:/config/config.toml --name marija marija/marija
 ```
 
-### Using Honeytrap as datasource
+### Using Honeytrap as datasource for Marija
 
-If you are using Marija to visualize data from a Honeytrap container, they need to be in the same Docker network.
+If you want to use Marija to visualize data from Honeytrap data source, they both need to run in the same Docker network.
 
 The following command uses `honeytrap` as the docker network:
 
@@ -33,7 +33,7 @@ The following command uses `honeytrap` as the docker network:
 $ docker run -d -p 8080:8080 -v $(pwd)/config-docker.toml:/config/config.toml --network=honeytrap --name marija marija/marija
 ```
 
-This can also be accomplished by running the following docker-compose script:
+This can also be accomplished by running the following Docker Compose script:
 
 ```
 $ docker-compose -f ./docker-compose-marija.yml up
