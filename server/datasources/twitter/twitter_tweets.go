@@ -2,6 +2,7 @@ package twitter
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -83,10 +84,20 @@ func (i *TwitterTweets) Search(ctx context.Context, so datasources.SearchOptions
 		defer close(itemCh)
 		defer close(errorCh)
 
-		search, _, err := i.client.Search.Tweets(&twitter.SearchTweetParams{
-			Query: so.Query,
+		stp := twitter.SearchTweetParams{
 			Count: 200,
-		})
+		}
+
+		if strings.HasPrefix(so.Query, "geo:") {
+			parts := strings.Split(so.Query, " ")
+
+			stp.Geocode = parts[0][4:]
+			stp.Query = strings.Join(parts[1:], " ")
+		} else {
+			stp.Query = so.Query
+		}
+
+		search, _, err := i.client.Search.Tweets(&stp)
 
 		if err != nil {
 			errorCh <- err
@@ -96,7 +107,6 @@ func (i *TwitterTweets) Search(ctx context.Context, so datasources.SearchOptions
 		for _, tweet := range search.Statuses {
 			fields := map[string]interface{}{
 				"text": tweet.Text,
-				// "date":             time.Unix(tx.Time, 0),
 				"in_reply_to_screen_name":   tweet.InReplyToScreenName,
 				"in_reply_to_status_id_str": tweet.InReplyToStatusIDStr,
 				"in_reply_to_user_id_str":   tweet.InReplyToUserIDStr,
@@ -109,6 +119,13 @@ func (i *TwitterTweets) Search(ctx context.Context, so datasources.SearchOptions
 				"user.screen_name": tweet.User.ScreenName,
 				"tags":             mention.GetTags('#', strings.NewReader(tweet.Text), ':'),
 				"mentions":         mention.GetTags('@', strings.NewReader(tweet.Text), ':'),
+			}
+
+			if tweet.Coordinates == nil {
+			} else if tweet.Coordinates.Type != "Point" {
+			} else {
+				coordinates := fmt.Sprintf("%f,%f", tweet.Coordinates.Coordinates[1], tweet.Coordinates.Coordinates[0])
+				fields["coordinates"] = coordinates
 			}
 
 			item := datasources.Item{
@@ -181,5 +198,11 @@ func (i *TwitterTweets) GetFields(ctx context.Context) (fields []datasources.Fie
 		Path: "tags",
 		Type: "string",
 	})
+
+	fields = append(fields, datasources.Field{
+		Path: "coordinates",
+		Type: "location",
+	})
+
 	return
 }
