@@ -16,6 +16,7 @@ import (
 	_ "github.com/dutchcoders/marija/server/datasources/blockchain"
 	_ "github.com/dutchcoders/marija/server/datasources/es5"
 	_ "github.com/dutchcoders/marija/server/datasources/live"
+	_ "github.com/dutchcoders/marija/server/datasources/openkvk"
 	_ "github.com/dutchcoders/marija/server/datasources/splunk"
 	_ "github.com/dutchcoders/marija/server/datasources/twitter"
 
