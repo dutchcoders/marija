@@ -206,7 +206,7 @@ func (i *TwitterTweets) GetFields(ctx context.Context) (fields []datasources.Fie
 	})
 
 	fields = append(fields, datasources.Field{
-		Path: "profile_image",
+		Path: "user.profile_image",
 		Type: "image",
 	})
 
