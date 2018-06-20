@@ -19,6 +19,7 @@ import (
 	_ "github.com/dutchcoders/marija/server/datasources/openkvk"
 	_ "github.com/dutchcoders/marija/server/datasources/splunk"
 	_ "github.com/dutchcoders/marija/server/datasources/twitter"
+	_ "github.com/dutchcoders/marija/server/datasources/voertuiggegevens"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 
