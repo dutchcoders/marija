@@ -13,6 +13,7 @@ WORKDIR /go/src/github.com/dutchcoders/marija
 RUN go build -ldflags="$(go run scripts/gen-ldflags.go)" -o /go/bin/app github.com/dutchcoders/marija
 
 FROM debian
+RUN apt-get update && apt-get install -y ca-certificates
 
 COPY --from=go /go/bin/app /marija/marija
 
