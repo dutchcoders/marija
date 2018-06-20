@@ -110,15 +110,16 @@ func (i *TwitterTweets) Search(ctx context.Context, so datasources.SearchOptions
 				"in_reply_to_screen_name":   tweet.InReplyToScreenName,
 				"in_reply_to_status_id_str": tweet.InReplyToStatusIDStr,
 				"in_reply_to_user_id_str":   tweet.InReplyToUserIDStr,
-				"lang":             tweet.Lang,
-				"source":           tweet.Source,
-				"user.name":        tweet.User.Name,
-				"user.id_str":      tweet.User.IDStr,
-				"user.lang":        tweet.User.Lang,
-				"user.location":    tweet.User.Location,
-				"user.screen_name": tweet.User.ScreenName,
-				"tags":             mention.GetTags('#', strings.NewReader(tweet.Text), ':'),
-				"mentions":         mention.GetTags('@', strings.NewReader(tweet.Text), ':'),
+				"lang":               tweet.Lang,
+				"source":             tweet.Source,
+				"user.name":          tweet.User.Name,
+				"user.id_str":        tweet.User.IDStr,
+				"user.lang":          tweet.User.Lang,
+				"user.location":      tweet.User.Location,
+				"user.screen_name":   tweet.User.ScreenName,
+				"user.profile_image": tweet.User.ProfileImageURLHttps,
+				"tags":               mention.GetTags('#', strings.NewReader(tweet.Text), ':'),
+				"mentions":           mention.GetTags('@', strings.NewReader(tweet.Text), ':'),
 			}
 
 			if tweet.Coordinates == nil {
@@ -202,6 +203,11 @@ func (i *TwitterTweets) GetFields(ctx context.Context) (fields []datasources.Fie
 	fields = append(fields, datasources.Field{
 		Path: "coordinates",
 		Type: "location",
+	})
+
+	fields = append(fields, datasources.Field{
+		Path: "profile_image",
+		Type: "image",
 	})
 
 	return
