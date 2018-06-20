@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/op/go-logging"
 
@@ -42,7 +44,7 @@ type Response struct {
 			VboID                 string   `json:"vbo_id"`
 			BestaandeHandelsnaam  []string `json:"bestaandehandelsnaam"`
 			StatutaireHandelsnaam []string `json:"statutairehandelsnaam"`
-			PandID                []string `json:"pand_id"`
+			PandID                string   `json:"pand_id"`
 			Dossiernummer         string   `json:"dossiernummer"`
 			Handelsnaam           string   `json:"handelsnaam"`
 			Links                 struct {
@@ -117,11 +119,33 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 			size = so.Size
 		}
 
-		u, err := url.Parse(fmt.Sprintf("https://api.overheid.io/openkvk?query=%s&fields[]=statutairehandelsnaam&fields[]=bestaandehandelsnaam&fields[]=postcode&fields[]=handelsnaam&fields[]=plaats&fields[]=locatie&fields[]=vestigingsnummer", so.Query))
+		q := url.Values{}
+		q.Add("query", so.Query)
+		for _, name := range []string{
+			"statutairehandelsnaam",
+			"bestaandehandelsnaam",
+			"postcode",
+			"straat",
+			"handelsnaam",
+			"locatie",
+			"vestigingsnummer",
+			"dossiernummer",
+			"btw",
+			"rsin",
+			"lei",
+			"pand_id",
+			"vbo_id",
+		} {
+			q.Add("fields[]", name)
+		}
+
+		u, err := url.Parse(fmt.Sprintf("https://api.overheid.io/openkvk"))
 		if err != nil {
 			errorCh <- err
 			return
 		}
+
+		u.RawQuery = q.Encode()
 
 		count := 0
 
@@ -141,7 +165,7 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 			}
 
 			response := Response{}
-			if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			if err := json.NewDecoder(io.TeeReader(resp.Body, os.Stdout)).Decode(&response); err != nil {
 				errorCh <- err
 				return
 			}
@@ -186,6 +210,10 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 				}
 
 				count++
+			}
+
+			if response.Links.Next.Href == "" {
+				return
 			}
 
 			u, err = url.Parse(response.Links.Next.Href)
