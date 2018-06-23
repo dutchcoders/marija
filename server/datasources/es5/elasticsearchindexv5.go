@@ -249,6 +249,29 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 	return
 }
 
+func unique(fields []datasources.Field) []datasources.Field {
+	newFields := []datasources.Field{}
+
+	for _, f := range fields {
+		found := false
+
+		for _, nf := range newFields {
+			if f.Path == nf.Path {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			continue
+		}
+
+		newFields = append(newFields, f)
+	}
+
+	return newFields
+}
+
 func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
 	mappings, err := i.client.GetMapping().
 		Index(i.Index).
@@ -266,5 +289,6 @@ func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Fie
 		}
 	}
 
+	fields = unique(fields)
 	return
 }
