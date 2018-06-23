@@ -6,6 +6,9 @@ url="http://127.0.0.1:9200/demo_index"
 #username=
 #password=
 
+#[datasource.elasticsearch.scripted-fields]
+#scripted-field="params['_source']['field1'] + '_' + params['_source']['field2']"
+
 [datasource.twitter]
 type="twitter"
 consumer_key=""

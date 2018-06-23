@@ -66,6 +66,8 @@ type Config struct {
 
 	Username string
 	Password string
+
+	ScriptFields []*elastic.ScriptField
 }
 
 type Elasticsearch struct {
@@ -77,6 +79,19 @@ type Elasticsearch struct {
 
 func (m *Elasticsearch) UnmarshalTOML(p interface{}) error {
 	data, _ := p.(map[string]interface{})
+
+	if v, ok := data["scripted-fields"]; !ok {
+	} else if v, ok := v.(map[string]interface{}); !ok {
+	} else {
+		for n, script := range v {
+			v, ok := script.(string)
+			if !ok {
+				continue
+			}
+
+			m.ScriptFields = append(m.ScriptFields, elastic.NewScriptField(n, elastic.NewScript(v)))
+		}
+	}
 
 	if v, ok := data["username"]; !ok {
 	} else if v, ok := v.(string); !ok {
@@ -116,13 +131,6 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		hl = hl.Fields(elastic.NewHighlighterField("*").RequireFieldMatch(false).NumOfFragments(0))
 		hl = hl.PreTags("<em>").PostTags("</em>")
 
-		scriptFields := []*elastic.ScriptField{
-		/*
-			//		elastic.NewScriptField("src-ip_dst-ip_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-ip'] + '_' + params['_source']['destination-port']")),
-			elastic.NewScriptField("src-ip_dst-net_port", elastic.NewScript("params['_source']['source-ip'] + '_' + params['_source']['destination-net'] + '_' + params['_source']['destination-port']")),
-		*/
-		}
-
 		q := elastic.NewQueryStringQuery(so.Query)
 
 		src := elastic.NewSearchSource().
@@ -133,8 +141,8 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 			From(so.From).
 			Size(100)
 
-		if len(scriptFields) > 0 {
-			src = src.ScriptFields(scriptFields...)
+		if len(i.ScriptFields) > 0 {
+			src = src.ScriptFields(i.ScriptFields...)
 		}
 
 		hits := make(chan *elastic.SearchHit)
@@ -286,6 +294,15 @@ func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Fie
 		mapping = mapping["mappings"].(map[string]interface{})
 		for _, v := range mapping {
 			fields = append(fields, flatten("", v.(map[string]interface{}))...)
+		}
+	}
+
+	if len(i.ScriptFields) > 0 {
+		for _, sf := range i.ScriptFields {
+			fields = append(fields, datasources.Field{
+				Path: sf.FieldName,
+				Type: "text",
+			})
 		}
 	}
 
