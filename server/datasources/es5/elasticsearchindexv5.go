@@ -229,7 +229,7 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 		} else if k == "properties" {
 			fields = append(fields, flatten(root, v.(map[string]interface{}))...)
 		} else if k == "fields" {
-			fields = append(fields, flatten(root, v.(map[string]interface{}))...)
+			// we'll ignore subfields here
 		} else {
 			if v2, ok := v.(map[string]interface{}); ok {
 				key := k
