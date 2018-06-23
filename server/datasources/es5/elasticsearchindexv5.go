@@ -250,14 +250,7 @@ func flatten(root string, m map[string]interface{}) (fields []datasources.Field)
 }
 
 func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Field, err error) {
-	exists, err := i.client.IndexExists(i.Index).Do(ctx)
-	if err != nil {
-		return nil, err
-	} else if !exists {
-		return nil, fmt.Errorf("Index %s doesn't exist", i.Index)
-	}
-
-	mapping, err := i.client.GetMapping().
+	mappings, err := i.client.GetMapping().
 		Index(i.Index).
 		Do(ctx)
 
@@ -265,23 +258,13 @@ func (i *Elasticsearch) GetFields(ctx context.Context) (fields []datasources.Fie
 		return nil, fmt.Errorf("Error retrieving fields for index: %s: %s", i.Index, err.Error())
 	}
 
-	mapping = mapping[i.Index].(map[string]interface{})
-	mapping = mapping["mappings"].(map[string]interface{})
-	for _, v := range mapping {
-		fields = append(fields, flatten("", v.(map[string]interface{}))...)
+	for i, _ := range mappings {
+		mapping := mappings[i].(map[string]interface{})
+		mapping = mapping["mappings"].(map[string]interface{})
+		for _, v := range mapping {
+			fields = append(fields, flatten("", v.(map[string]interface{}))...)
+		}
 	}
-
-	/*
-		fields = append(fields, datasources.Field{
-			Path: "src-ip_dst-net_port",
-			Type: "string",
-		})
-
-		fields = append(fields, datasources.Field{
-			Path: "src-ip_dst-ip_port",
-			Type: "string",
-		})
-	*/
 
 	return
 }
