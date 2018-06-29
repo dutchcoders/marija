@@ -142,9 +142,10 @@ func (c *connection) Search(ctx context.Context, r messages.SearchRequest) error
 					hashHex := hex.EncodeToString(hash)
 
 					i := &datasources.Graph{
-						ID:     hashHex,
-						Fields: values,
-						Count:  1,
+						ID:         hashHex,
+						Fields:     values,
+						Datasource: index,
+						Count:      1,
 					}
 
 					if v, ok := unique.Get(hash); ok {
