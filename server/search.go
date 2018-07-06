@@ -74,9 +74,10 @@ func (c *connection) Search(ctx context.Context, r messages.SearchRequest) error
 					})
 				} else {
 					c.Send(&messages.SearchResponse{
-						RequestID: r.RequestID,
-						Query:     r.Query,
-						Graphs:    graphs,
+						RequestID:  r.RequestID,
+						Query:      r.Query,
+						Graphs:     graphs,
+						Datasource: index,
 					})
 
 					c.Send(&messages.RequestCompleted{
