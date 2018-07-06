@@ -51,7 +51,10 @@ func (c *connection) Items(ctx context.Context, r messages.ItemsRequest) error {
 		}()
 
 		for _, itemid := range r.Items {
-			items := c.items[itemid]
+			items, ok := c.items.Load(itemid)
+			if !ok {
+				continue
+			}
 
 			if len(items) == 0 {
 				continue

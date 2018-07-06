@@ -157,14 +157,10 @@ func (c *connection) Search(ctx context.Context, r messages.SearchRequest) error
 
 					unique.Add(hash, i)
 
-					items := []datasources.Item{}
-					if _, ok := c.items[i.ID]; ok {
-						items = c.items[i.ID]
-					}
-
+					items, _ := c.items.LoadOrStore(i.ID, []datasources.Item{})
 					items = append(items, item)
 
-					c.items[i.ID] = items
+					c.items.Store(i.ID, items)
 
 					graphs = append(graphs, *i)
 
