@@ -192,9 +192,8 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 				}
 
 				itemCh <- datasources.Item{
-					ID:        hit.Id,
-					Fields:    fields,
-					Highlight: hit.Highlight,
+					ID:     hit.Id,
+					Fields: fields,
 				}
 			}
 		}
