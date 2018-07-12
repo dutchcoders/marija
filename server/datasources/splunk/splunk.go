@@ -125,7 +125,7 @@ func (i *Splunk) Search(ctx context.Context, so datasources.SearchOptions) datas
 			for {
 				data = url.Values{}
 				data.Add("output_mode", "json")
-				data.Add("count", "200")
+				data.Add("count", "1000")
 				data.Add("offset", fmt.Sprintf("%d", offset))
 
 				req, err = i.client.NewRequest("GET", fmt.Sprintf("/services/search/jobs/%s/results/?%s", sid, data.Encode()), nil)
