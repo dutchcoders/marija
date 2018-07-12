@@ -8,6 +8,8 @@ import (
 
 	"net/url"
 
+	"strconv"
+
 	"github.com/dutchcoders/marija/server/datasources"
 	logging "github.com/op/go-logging"
 )
@@ -19,7 +21,11 @@ var (
 )
 
 func New(options ...func(datasources.Index) error) (datasources.Index, error) {
-	s := Splunk{}
+	s := Splunk{
+		Config: Config{
+			BatchCount: 200,
+		},
+	}
 
 	for _, optionFn := range options {
 		optionFn(&s)
@@ -40,6 +46,8 @@ type Config struct {
 
 	Username string
 	Password string
+
+	BatchCount int
 }
 
 type Splunk struct {
@@ -77,6 +85,13 @@ func (m *Splunk) UnmarshalTOML(p interface{}) error {
 		u.Path = ""
 	}
 
+	if v, ok := data["batch_count"]; !ok {
+	} else if v, ok := v.(string); !ok {
+	} else if count, err := strconv.Atoi(v); err != nil {
+	} else {
+		m.BatchCount = count
+	}
+
 	return nil
 }
 
@@ -87,13 +102,6 @@ func (i *Splunk) Search(ctx context.Context, so datasources.SearchOptions) datas
 	go func() {
 		defer close(itemCh)
 		defer close(errorCh)
-
-		size := 200
-		if so.Size > 0 {
-			size = so.Size
-		}
-
-		_ = size
 
 		data := url.Values{}
 		data.Add("output_mode", "json")
@@ -125,7 +133,7 @@ func (i *Splunk) Search(ctx context.Context, so datasources.SearchOptions) datas
 			for {
 				data = url.Values{}
 				data.Add("output_mode", "json")
-				data.Add("count", "1000")
+				data.Add("count", fmt.Sprintf("%d", i.BatchCount))
 				data.Add("offset", fmt.Sprintf("%d", offset))
 
 				req, err = i.client.NewRequest("GET", fmt.Sprintf("/services/search/jobs/%s/results/?%s", sid, data.Encode()), nil)
