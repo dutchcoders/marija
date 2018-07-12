@@ -57,10 +57,12 @@ type Response struct {
 				Lat string `json:"lat"`
 				Lon string `json:"lon"`
 			} `json:"locatie"`
-			Straat           string `json:"straat"`
-			Plaats           string `json:"plaats"`
-			Subdossiernummer string `json:"subdossiernummer"`
-			Vestigingsnummer string `json:"vestigingsnummer"`
+			Straat           string   `json:"straat"`
+			Plaats           string   `json:"plaats"`
+			SBI              []string `json:"sbi"`
+			Type             string   `json:"type"`
+			Subdossiernummer string   `json:"subdossiernummer"`
+			Vestigingsnummer string   `json:"vestigingsnummer"`
 		} `json:"bedrijf"`
 	} `json:"_embedded"`
 	Links struct {
@@ -125,6 +127,7 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 			"statutairehandelsnaam",
 			"bestaandehandelsnaam",
 			"postcode",
+			"plaats",
 			"straat",
 			"handelsnaam",
 			"locatie",
@@ -135,6 +138,8 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 			"lei",
 			"pand_id",
 			"vbo_id",
+			"sbi",
+			"type",
 		} {
 			q.Add("fields[]", name)
 		}
@@ -190,6 +195,8 @@ func (b *OpenKvK) Search(ctx context.Context, so datasources.SearchOptions) data
 					"postcode":              doc.Postcode,
 					"straat":                doc.Straat,
 					"plaats":                doc.Plaats,
+					"type":                  doc.Type,
+					"sbi":                   doc.SBI,
 				}
 
 				if doc.Locatie.Lon == "" {
@@ -328,6 +335,16 @@ func (i *OpenKvK) GetFields(context.Context) (fields []datasources.Field, err er
 
 	fields = append(fields, datasources.Field{
 		Path: "plaats",
+		Type: "string",
+	})
+
+	fields = append(fields, datasources.Field{
+		Path: "sbi",
+		Type: "string",
+	})
+
+	fields = append(fields, datasources.Field{
+		Path: "type",
 		Type: "string",
 	})
 
