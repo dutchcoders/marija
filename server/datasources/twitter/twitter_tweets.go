@@ -106,7 +106,8 @@ func (i *TwitterTweets) Search(ctx context.Context, so datasources.SearchOptions
 
 		for _, tweet := range search.Statuses {
 			fields := map[string]interface{}{
-				"text": tweet.Text,
+				"text":                      tweet.Text,
+				"created_at":                tweet.CreatedAt,
 				"in_reply_to_screen_name":   tweet.InReplyToScreenName,
 				"in_reply_to_status_id_str": tweet.InReplyToStatusIDStr,
 				"in_reply_to_user_id_str":   tweet.InReplyToUserIDStr,
@@ -172,7 +173,7 @@ func (i *TwitterTweets) GetFields(ctx context.Context) (fields []datasources.Fie
 
 	fields = append(fields, datasources.Field{
 		Path: "created_at",
-		Type: "string",
+		Type: "date",
 	})
 
 	fields = append(fields, datasources.Field{
