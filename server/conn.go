@@ -68,7 +68,7 @@ func (c *connection) readPump() {
 		close(c.send)
 	}()
 
-	c.ws.SetReadLimit(maxMessageSize)
+	c.ws.SetReadLimit(0)
 	c.ws.SetReadDeadline(time.Now().Add(pongWait))
 	c.ws.SetPongHandler(func(string) error {
 		c.ws.SetReadDeadline(time.Now().Add(pongWait))
