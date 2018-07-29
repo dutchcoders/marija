@@ -4,13 +4,26 @@
 
 Marija is a data exploration and visualisation tool for (un)structured Elasticsearch data. Using Marija you'll be able to see relations between data of different datasources without any modifications to your data or index.
 
-Currently Marija is being used to identify related spamruns, but can be used for all kind of different data sets.
-
-[Enron Demo](http://demo.marija.io/?datasources=enron&fields=cc%2Cto%2Csender%2Crecipients%2Csubject&search=oil%2Cmoney%2Cwater)
+[Demo](https://demo.marija.io/)
 
 # Screenshot
 
 ![](https://github.com/dutchcoders/marija-screenshots/blob/master/Screen%20Shot%202018-01-20%20at%2015.14.12.png?raw=true)
+
+## Features
+
+* work on multiple servers and indexes at the same time
+* different fields can be used as node identifier
+* identifiers can be normalized through normalization regular expressions
+* each field will have its own icon
+* query indexes natively to the datasource
+* histogram view to identify nodes in time
+* select and delete nodes
+* select related nodes, deselect all but selected nodes
+* zoom and move nodes
+* navigate through selected data using the tableview
+* multiple datasources supported like Elasticsearch, Splunk, Blockchain.info, Twitter
+* submit nodes in realtime
 
 ## Install
 
@@ -46,6 +59,7 @@ $ brew install marija
 
 ## Configuration
 
+### Elasticsearch
 ```
 [datasource]
 
@@ -73,28 +87,16 @@ username="admin"
 password="admin"
 ```
 
-## Features
-
-* work on multiple servers and indexes at the same time
-* different fields can be used as node identifier
-* identifiers can be normalized through normalization regular expressions
-* each field will have its own icon
-* query indexes natively to the datasource
-* histogram view to identify nodes in time
-* select and delete nodes
-* select related nodes, deselect all but selected nodes
-* zoom and move nodes
-* navigate through selected data using the tableview
-* multiple datasources supported like Elasticsearch, Splunk, Blockchain.info, Twitter
-* submit nodes in realtime
-
 ## Contribute to Marija
 
 Please follow Marija [Contributor's Guide](CONTRIBUTING.md)
 
+## Community
+Join the [marija-users](https://groups.google.com/forum/#!forum/marija-users) mailing list to discuss all things Marija.
+
 ## Copyright and license
 
-Code and documentation copyright 2016-2018 Remco Verhoef.
+Code and documentation copyright 2016-2018 Remco Verhoef [twitter](https://twitter.com/remco_verhoef).
 
-Code released under [the Apache license](LICENSE).
+Code released under [AGPL-3.0](LICENSE).
 
