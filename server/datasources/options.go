@@ -5,5 +5,6 @@ type SearchOptions struct {
 	From  int
 	Query string
 
-	Fields []string
+	AdvancedQueries []AdvancedQuery
+	Fields          []string
 }

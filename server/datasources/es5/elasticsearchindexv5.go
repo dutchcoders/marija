@@ -133,7 +133,18 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 			hl = hl.PreTags("<em>").PostTags("</em>")
 		*/
 
-		q := elastic.NewQueryStringQuery(so.Query)
+		q := elastic.NewBoolQuery().Must(
+			elastic.NewQueryStringQuery(so.Query).
+				DefaultField("*").
+				AllFields(true),
+		)
+
+		// .Filter(filters ...elastic.Query)
+		if len(so.AdvancedQueries) > 0 {
+			aq := so.AdvancedQueries[0]
+			fmt.Println(aq.Field, aq.Value)
+			q = q.Must(elastic.NewRangeQuery(aq.Field).Gte(aq.Value).Lt("now/d"))
+		}
 
 		src := elastic.NewSearchSource().
 			Query(q).

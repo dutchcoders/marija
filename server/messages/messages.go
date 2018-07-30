@@ -98,6 +98,8 @@ type SearchRequest struct {
 	Datasources []string `json:"datasources"`
 	Fields      []string `json:"fields"`
 	Query       string   `json:"query"`
+
+	AdvancedQueries []datasources.AdvancedQuery `json:"advancedQuery"`
 }
 
 type RequestCanceled struct {

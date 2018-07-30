@@ -33,3 +33,9 @@ func WithConfig(c toml.Primitive) func(Index) error {
 		return err
 	}
 }
+
+type AdvancedQuery struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    string `json:"value"`
+}

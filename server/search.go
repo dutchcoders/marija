@@ -52,7 +52,8 @@ func (c *connection) Search(ctx context.Context, r messages.SearchRequest) error
 			}()
 
 			response := datasource.Search(ctx, datasources.SearchOptions{
-				Query: r.Query,
+				Query:           r.Query,
+				AdvancedQueries: r.AdvancedQueries,
 			})
 
 			unique := unique.New()
