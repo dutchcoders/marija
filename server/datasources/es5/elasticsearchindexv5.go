@@ -29,6 +29,14 @@ var (
 
 var log = logging.MustGetLogger("marija/datasources/elasticsearch")
 
+type ElasticLogger struct {
+	*logging.Logger
+}
+
+func (el *ElasticLogger) Printf(format string, args ...interface{}) {
+	el.Logger.Debugf(format, args...)
+
+}
 func New(options ...func(datasources.Index) error) (datasources.Index, error) {
 	s := Elasticsearch{}
 
@@ -39,6 +47,11 @@ func New(options ...func(datasources.Index) error) (datasources.Index, error) {
 	params := []elastic.ClientOptionFunc{
 		elastic.SetURL(s.URL.String()),
 		elastic.SetSniff(false),
+	}
+	if false {
+		params = append(params, elastic.SetTraceLog(&ElasticLogger{
+			log,
+		}))
 	}
 
 	if s.Username != "" {
@@ -173,6 +186,8 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 					errorCh <- err
 					return
 				}
+
+				log.Debug("Elasticsearch totalhits=%d", results.TotalHits())
 
 				for _, hit := range results.Hits.Hits {
 					select {
