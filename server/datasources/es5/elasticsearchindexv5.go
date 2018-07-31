@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"time"
 
 	logging "github.com/op/go-logging"
 	cache "github.com/patrickmn/go-cache"
@@ -143,7 +144,7 @@ func (i *Elasticsearch) Search(ctx context.Context, so datasources.SearchOptions
 		if len(so.AdvancedQueries) > 0 {
 			aq := so.AdvancedQueries[0]
 			fmt.Println(aq.Field, aq.Value)
-			q = q.Must(elastic.NewRangeQuery(aq.Field).Gte(aq.Value).Lt("now/d"))
+			q = q.Must(elastic.NewRangeQuery(aq.Field).Gte(aq.Value).Lt(time.Now().Format(time.RFC3339)))
 		}
 
 		src := elastic.NewSearchSource().
