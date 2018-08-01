@@ -162,12 +162,12 @@ func (i *TwitterTweets) GetFields(ctx context.Context) (fields []datasources.Fie
 	})
 
 	fields = append(fields, datasources.Field{
-		Path: "in_reply_to_user_id",
+		Path: "in_reply_to_user_id_str",
 		Type: "string",
 	})
 
 	fields = append(fields, datasources.Field{
-		Path: "in_reply_to_status_id",
+		Path: "in_reply_to_status_id_str",
 		Type: "string",
 	})
 
