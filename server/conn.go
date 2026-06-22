@@ -128,14 +128,14 @@ func (c *connection) readPump() {
 		case messages.ActionTypeSearchRequest:
 			r := messages.SearchRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
-				log.Error("Error occured during search: %s", err.Error())
+				log.Error("Error occurred during search: %s", err.Error())
 
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.Search(ctx, r); err != nil {
-				log.Error("Error occured during search: %s", err.Error())
+				log.Error("Error occurred during search: %s", err.Error())
 
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
@@ -145,13 +145,13 @@ func (c *connection) readPump() {
 		case messages.ActionTypeItemsRequest:
 			r := messages.ItemsRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
-				log.Error("Error occured retrieving items: %s", err.Error())
+				log.Error("Error occurred retrieving items: %s", err.Error())
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.Items(ctx, r); err != nil {
-				log.Error("Error occured retrieving items: %s", err.Error())
+				log.Error("Error occurred retrieving items: %s", err.Error())
 
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
@@ -161,13 +161,13 @@ func (c *connection) readPump() {
 		case messages.ActionTypeGetFieldsRequest:
 			r := messages.GetFieldsRequest{}
 			if err := json.Unmarshal(data, &r); err != nil {
-				log.Error("Error occured during search: %s", err.Error())
+				log.Error("Error occurred during search: %s", err.Error())
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
 				})
 			} else if err := c.GetFields(ctx, r); err != nil {
-				log.Error("Error occured during field discovery: %s", err.Error())
+				log.Error("Error occurred during field discovery: %s", err.Error())
 				c.Send(&messages.ErrorMessage{
 					RequestID: r.RequestID,
 					Message:   err.Error(),
